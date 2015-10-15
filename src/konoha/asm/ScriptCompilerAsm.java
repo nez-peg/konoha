@@ -426,7 +426,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 	}
 
 	private void visitBlockStmt(TypedTree node) {
-		if (node.is(_Block)) {
+		if (!node.is(_Block)) {
 			visit(node);
 			if (node.getType() != void.class) {
 				mBuilder.pop(node.getClassType());
