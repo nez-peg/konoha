@@ -178,6 +178,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 				String pname = sub.getText(_name, null);
 				f.setVarType(pname, paramTypes[c]);
 				typed(sub, paramTypes[c]);
+				c++;
 			}
 		}
 		f.setParameterTypes(paramTypes);
@@ -370,6 +371,40 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 	// }
 	// return void.class;
 	// }
+
+	public class Try extends Undefined {
+		@Override
+		public Type accept(TypedTree node) {
+			// try block
+			visit(node.get(_try));
+
+			// catch block
+			for (TypedTree sub : node.get(_catch)) {
+				if (inFunction()) {
+					function.beginLocalVarScope();
+				}
+				String name = sub.getText(_name, null);
+				Type paramType = resolveType(sub.get(_type, null), Exception.class);
+				if (inFunction()) {
+					function.setVarType(name, paramType);
+					typed(sub.get(_name), paramType);
+				}
+				Type type = visit(sub.get(_body));
+				typed(sub, type);
+				if (inFunction()) {
+					function.endLocalVarScope();
+				}
+			}
+			typed(node.get(_catch), void.class);
+
+			// finally block
+			if (node.has(_finally)) {
+				Type type = visit(node.get(_finally));
+				typed(node.get(_catch), type);
+			}
+			return void.class;
+		}
+	}
 
 	protected Type[] EmptyArgument = new Type[0];
 
