@@ -18,7 +18,7 @@ import konoha.main.ConsoleUtils;
 import nez.ast.Tree;
 import nez.util.UList;
 
-public class TypeSystem extends CommonContext implements CommonSymbols {
+public class TypeSystem implements CommonSymbols {
 	ScriptContext context;
 	ScriptCompiler compl;
 

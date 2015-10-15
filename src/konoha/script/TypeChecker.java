@@ -108,7 +108,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 		try {
 			typeSystem.importStaticClass(path);
 		} catch (ClassNotFoundException e) {
-			throw error(node.get(_name), "undefined class name: %s", path);
+			throw error(node.get(_name), Message.UndefinedClass_, path);
 		}
 		node.done();
 		return void.class;
@@ -202,17 +202,19 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 		}
 	}
 
-	public Type typeReturn(TypedTree node) {
+	private void checkInFunction(TypedTree node) {
 		if (!inFunction()) {
-			throw this.error(node, "return must be inside function");
+			throw error(node, Message.MustBeInFunction);
 		}
+	}
+
+	public Type typeReturn(TypedTree node) {
+		checkInFunction(node);
 		Type t = this.function.getReturnType();
 		if (t == null) { // type inference
-			if (node.has(_expr)) {
-				this.function.setReturnType(visit(node.get(_expr)));
-			} else {
-				this.function.setReturnType(void.class);
-			}
+			Type inferred = node.has(_expr) ? visit(node.get(_expr)) : void.class;
+			reportInferredType(node, Message.InferredReturn_, name(inferred));
+			this.function.setReturnType(inferred);
 			return void.class;
 		}
 		if (t == void.class) {
@@ -220,9 +222,36 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 				node.removeSubtree();
 			}
 		} else {
+			if (!node.has(_expr)) {
+				node.make(_expr, newDefault(node, t));
+			}
 			this.enforceType(t, node, _expr);
 		}
 		return void.class;
+	}
+
+	private TypedTree newDefault(TypedTree node, Type type) {
+		if (type == int.class) {
+			return node.newConst(_Integer, int.class, 0);
+		}
+		if (type == double.class || type == float.class) {
+			return node.newConst(_Double, double.class, 0.0);
+		}
+		if (type == long.class) {
+			return node.newConst(_False, boolean.class, false);
+		}
+		if (type == long.class) {
+			return node.newConst(_Long, long.class, 0L);
+		}
+		return node.newConst(_Null, type, null);
+	}
+
+	public boolean verboseTypeInference = true;
+
+	private void reportInferredType(TypedTree node, Message fmt, Object... args) {
+		if (verboseTypeInference) {
+			this.reportWarning(node, fmt, args);
+		}
 	}
 
 	/* Statement */
@@ -261,15 +290,33 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 		return void.class;
 	}
 
+	public void reportWarning(TypedTree node, String fmt, Object... args) {
+		String msg = node.formatSourceMessage("warning", String.format(fmt, args));
+		context.log(msg);
+	}
+
+	public void reportWarning(TypedTree node, Message fmt, Object... args) {
+		String msg = node.formatSourceMessage("warning", String.format(fmt.toString(), args));
+		context.log(msg);
+	}
+
+	public void checkCondition(TypedTree node, Symbol condLabel) {
+		if (node.get(condLabel).is(_Assign)) {
+			this.reportWarning(node.get(condLabel), "==");
+			node.setTag(_Equals);
+		}
+		enforceType(boolean.class, node, condLabel);
+	}
+
 	public class Assert extends Undefined {
 		@Override
 		public Type accept(TypedTree node) {
-			enforceType(boolean.class, node, _cond);
+			checkCondition(node, _cond);
 			if (node.has(_msg)) {
 				enforceType(String.class, node, _msg);
 			} else {
 				String msg = node.get(_cond).formatSourceMessage("assert", "failed");
-				node.make(_cond, node.get(_cond), _msg, node.newStringConst(msg));
+				node.make(_cond, node.get(_cond), _msg, node.newConst(_String, String.class, msg));
 			}
 			node.setInterface(Hint.StaticInvocation2, KonohaRuntime.System_assert(), null);
 			return void.class;
@@ -279,7 +326,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 	public class If extends Undefined {
 		@Override
 		public Type accept(TypedTree node) {
-			enforceType(boolean.class, node, _cond);
+			checkCondition(node, _cond);
 			visit(node.get(_then));
 			if (node.has(_else)) {
 				visit(node.get(_else));
@@ -291,7 +338,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 	public class Conditional extends Undefined {
 		@Override
 		public Type accept(TypedTree node) {
-			enforceType(boolean.class, node, _cond);
+			checkCondition(node, _cond);
 			Type then_t = visit(node.get(_then));
 			Type else_t = visit(node.get(_else));
 			if (then_t != else_t) {
@@ -304,7 +351,18 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 	public class While extends Undefined {
 		@Override
 		public Type accept(TypedTree node) {
-			enforceType(boolean.class, node, _cond);
+			checkInFunction(node);
+			checkCondition(node, _cond);
+			visit(node.get(_body));
+			return void.class;
+		}
+	}
+
+	public class DoWhile extends Undefined {
+		@Override
+		public Type accept(TypedTree node) {
+			checkInFunction(node);
+			checkCondition(node, _cond);
 			visit(node.get(_body));
 			return void.class;
 		}
@@ -313,6 +371,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 	public class Continue extends Undefined {
 		@Override
 		public Type accept(TypedTree node) {
+			checkInFunction(node);
 			return void.class;
 		}
 	}
@@ -320,6 +379,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 	public class Break extends Undefined {
 		@Override
 		public Type accept(TypedTree node) {
+			checkInFunction(node);
 			return void.class;
 		}
 	}
@@ -327,22 +387,19 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 	public class For extends Undefined {
 		@Override
 		public Type accept(TypedTree node) {
-			if (inFunction()) {
-				function.beginLocalVarScope();
-			}
+			checkInFunction(node);
+			function.beginLocalVarScope();
 			if (node.has(_init)) {
 				visit(node.get(_init));
 			}
 			if (node.has(_cond)) {
-				enforceType(boolean.class, node, _cond);
+				checkCondition(node, _cond);
 			}
 			if (node.has(_iter)) {
 				visit(node.get(_iter));
 			}
 			visit(node.get(_body));
-			if (inFunction()) {
-				function.endLocalVarScope();
-			}
+			function.endLocalVarScope();
 			return void.class;
 		}
 	}
@@ -375,25 +432,20 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 	public class Try extends Undefined {
 		@Override
 		public Type accept(TypedTree node) {
+			checkInFunction(node);
 			// try block
 			visit(node.get(_try));
 
 			// catch block
 			for (TypedTree sub : node.get(_catch)) {
-				if (inFunction()) {
-					function.beginLocalVarScope();
-				}
+				function.beginLocalVarScope();
 				String name = sub.getText(_name, null);
 				Type paramType = resolveType(sub.get(_type, null), Exception.class);
-				if (inFunction()) {
-					function.setVarType(name, paramType);
-					typed(sub.get(_name), paramType);
-				}
+				function.setVarType(name, paramType);
+				typed(sub.get(_name), paramType);
 				Type type = visit(sub.get(_body));
 				typed(sub, type);
-				if (inFunction()) {
-					function.endLocalVarScope();
-				}
+				function.endLocalVarScope();
 			}
 			typed(node.get(_catch), void.class);
 
@@ -450,38 +502,16 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 			}
 		} else { /* type inference from the expression */
 			if (!node.has(_expr)) { // untyped
-				this.typeSystem.reportWarning(node.get(_name), "type is ungiven");
+				// this.typeSystem.reportWarning(node.get(_name),
+				// "type is ungiven");
 				type = Object.class;
 			} else {
-				type = visit(node.get(_expr, null));
+				type = visit(node.get(_expr));
 			}
+			this.reportInferredType(node.get(_name), Message.InferredVariable__, name, name(type));
 		}
 		defineVariable(node, type, name);
 		return void.class;
-		// typed(node.get(_name), type); // name is typed
-		//
-		// if (this.inFunction()) {
-		// // TRACE("local variable");
-		// this.function.setVarType(name, type);
-		// return void.class;
-		// }
-		// // TRACE("global variable");
-		// GlobalVariable gv = typeSystem.getGlobalVariable(name);
-		// if (gv != null) {
-		// if (gv.getType() != type) {
-		// throw error(node.get(_name), "already defined name: %s as %s", name,
-		// name(gv.getType()));
-		// }
-		// } else {
-		// gv = typeSystem.newGlobalVariable(type, name);
-		// }
-		// if (!node.has(_expr)) {
-		// node.done();
-		// return void.class;
-		// }
-		// // Assign
-		// node.rename(_VarDecl, _Assign);
-		// return node.setField(Hint.SetField, gv.field);
 	}
 
 	public class MultiVarDecl extends Undefined {
@@ -508,18 +538,22 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 	}
 
 	private void defineVariable(TypedTree node, Type type, String name) {
-		typed(node.get(_name), type); // name is typed
+		TypedTree nm = node.get(_name);
+		typed(nm, type); // name is typed
+		if (!node.has(_expr)) {
+			reportWarning(nm, Message.NoInitialValue);
+			TypedTree expr = newDefault(node, type);
+			node.make(_name, nm, _expr, expr);
+		}
 		if (this.inFunction()) {
-			// TRACE("local variable");
 			this.function.setVarType(name, type);
 			typed(node, void.class);
 			return;
 		}
-		// TRACE("global variable");
 		GlobalVariable gv = typeSystem.getGlobalVariable(name);
 		if (gv != null) {
 			if (gv.getType() != type) {
-				throw error(node.get(_name), "already defined name: %s as %s", name, name(gv.getType()));
+				throw error(node.get(_name), Message.AlreadyDefinedName_As_, name, name(gv.getType()));
 			}
 		} else {
 			gv = typeSystem.newGlobalVariable(type, name);
@@ -1360,13 +1394,13 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	private TypedTree desugarInc(TypedTree expr, Symbol optag) {
 		TypedTree op = expr.newInstance(optag, 0, null);
-		op.make(_left, expr.dup(), _right, expr.newIntConst(1));
+		op.make(_left, expr.dup(), _right, expr.newConst(_Integer, int.class, 1));
 		return op;
 	}
 
 	private TypedTree desugarAssign(TypedTree node, TypedTree expr, Symbol optag) {
 		TypedTree op = expr.newInstance(optag, 0, null);
-		op.make(_left, expr.dup(), _right, expr.newIntConst(1));
+		op.make(_left, expr.dup(), _right, expr.newConst(_Integer, int.class, 1));
 		node.make(_left, expr, _right, desugarInc(expr, _Add));
 		node.setTag(_Assign);
 		return node;

@@ -90,20 +90,16 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 	public class VarDecl extends Undefined {
 		@Override
 		public Object accept(TypedTree node) {
-			if (node.has(_expr)) {
-				evalSetFieldHint(node);
-			}
+			evalSetFieldHint(node);
 			return empty;
 		}
 	}
 
-	public class MultiFuncDecl extends Undefined {
+	public class MultiVarDecl extends Undefined {
 		@Override
 		public Object accept(TypedTree node) {
 			for (TypedTree sub : node.get(_list)) {
-				if (sub.has(_expr)) {
-					evalSetFieldHint(sub);
-				}
+				evalSetFieldHint(sub);
 			}
 			return empty;
 		}
@@ -295,6 +291,13 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 			Object[] args = evalApplyArgument(node);
 			Functor inf = node.getInterface();
 			return inf.eval(null, new Object[] { args });
+		}
+	}
+
+	public class Null extends Undefined {
+		@Override
+		public Object accept(TypedTree node) {
+			return null;
 		}
 	}
 

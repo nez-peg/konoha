@@ -3,7 +3,6 @@ package konoha.script;
 import java.lang.reflect.Field;
 import java.lang.reflect.Type;
 
-import konoha.message.Message;
 import nez.ast.Source;
 import nez.ast.Symbol;
 import nez.ast.Tree;
@@ -38,15 +37,9 @@ public class TypedTree extends Tree<TypedTree> {
 		return new TypedTree(tag, this.getSource(), this.getSourcePosition(), 0, size, value);
 	}
 
-	public TypedTree newStringConst(String s) {
-		TypedTree t = new TypedTree(CommonSymbols._String, this.getSource(), this.getSourcePosition(), 0, 0, s);
-		t.setConst(String.class, s);
-		return t;
-	}
-
-	public TypedTree newIntConst(int n) {
-		TypedTree t = new TypedTree(CommonSymbols._Integer, this.getSource(), this.getSourcePosition(), 0, 0, n);
-		t.setConst(int.class, n);
+	public TypedTree newConst(Symbol tag, Type type, Object value) {
+		TypedTree t = new TypedTree(tag, this.getSource(), this.getSourcePosition(), 0, 0, value);
+		t.setConst(type, value);
 		return t;
 	}
 
@@ -58,10 +51,11 @@ public class TypedTree extends Tree<TypedTree> {
 		return t;
 	}
 
-	@Override
-	protected RuntimeException newNoSuchLabel(Symbol label) {
-		return new TypeCheckerException(this, Message.SyntaxError_Expected, label);
-	}
+	// @Override
+	// protected RuntimeException newNoSuchLabel(Symbol label) {
+	// return new TypeCheckerException(this, Message.SyntaxError_Expected,
+	// label);
+	// }
 
 	// public void changed(Symbol tag, int n, Object v) {
 	// this.tag = tag;

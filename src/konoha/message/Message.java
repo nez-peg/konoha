@@ -17,7 +17,9 @@ public enum Message {
 	Function_, Method__, Unary__, Binary___, Constructor_, //
 	Indexer_, //
 	UndefinedReturnType_, //
-	LeftHandAssignment;
+	LeftHandAssignment, //
+	MustBeInFunction, NoInitialValue, //
+	InferredReturn_, InferredVariable__;
 	@Override
 	public String toString() {
 		try {

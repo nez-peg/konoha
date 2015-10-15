@@ -120,7 +120,7 @@ public class ScriptContext {
 	}
 
 	public void log(String msg) {
-		int c = msg.indexOf("[error]") > 0 ? 31 : 34;
+		int c = msg.indexOf("[error]") > 0 ? 31 : 35;
 		ConsoleUtils.begin(c);
 		ConsoleUtils.println(msg);
 		ConsoleUtils.end();
