@@ -18,7 +18,6 @@ import konoha.script.ScriptContext;
 import konoha.script.ScriptRuntimeException;
 import nez.lang.Example;
 import nez.main.CommandContext;
-import nez.main.Revision;
 
 public class Main {
 	public final static void main(String[] args) {
