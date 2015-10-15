@@ -4,7 +4,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 
 import konoha.Array;
-import konoha.IArray;
+import konoha.ArrayInt;
 import konoha.asm.ScriptCompiler;
 import nez.ast.TreeVisitor2;
 
@@ -303,15 +303,20 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 
 	public class _Array extends Undefined {
 		@Override
-		@SuppressWarnings({ "rawtypes", "unchecked" })
 		public Object accept(TypedTree node) {
 			Object[] args = evalApplyArgument(node);
-			Class<?> atype = node.getClassType();
-			if (atype == IArray.class) {
-				return new IArray<Object>(args, args.length);
-				// System.out.println("AAA " + a + " " + a.getClass());
+			Class<?> atype = TypeSystem.getArrayElementClass(node.getType());
+			if (atype == int.class) {
+				int[] a = new int[args.length];
+				for (int i = 0; i < a.length; i++) {
+					a[i] = (Integer) args[i];
+				}
+				return new ArrayInt<Object>(a);
 			}
-			return new Array(args, args.length);
+			Object a = java.lang.reflect.Array.newInstance(atype, args.length);
+			System.arraycopy(args, 0, a, 0, args.length);
+			System.out.println("a=" + a.getClass().getSimpleName() + ", " + node.getType());
+			return new Array<Object>((Object[]) a);
 		}
 	}
 }

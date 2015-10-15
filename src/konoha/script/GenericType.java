@@ -18,8 +18,12 @@ public class GenericType implements Type {
 		this.name = shortName(base, params);
 	}
 
-	public Class<?> getRawType() {
+	public final Class<?> getRawType() {
 		return base;
+	}
+
+	public final Type[] getParameterTypes() {
+		return params;
 	}
 
 	public Type resolveType(String name, Type def) {
@@ -77,7 +81,7 @@ public class GenericType implements Type {
 	static HashMap<String, Type> uniqueMap = new HashMap<>();
 
 	static {
-		uniqueMap.put(key(konoha.Array.class, int.class), konoha.IArray.class);
+		uniqueMap.put(key(konoha.Array.class, int.class), konoha.ArrayInt.class);
 	}
 
 	public final static Type newType(Class<?> base, Type... params) {

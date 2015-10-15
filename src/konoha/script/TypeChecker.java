@@ -1252,7 +1252,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 			return Object.class;
 		}
 		boolean mixed = false;
-		Type elementType = Object.class;
+		Type elementType = null;
 		int shift = step == 2 ? 1 : 0;
 		for (int i = 0; i < node.size(); i += step) {
 			TypedTree sub = node.get(i + shift);
@@ -1292,6 +1292,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 		public Type accept(TypedTree node) {
 			Type elementType = typeCollectionElement(node, 1);
 			Type arrayType = typeSystem.newArrayType(elementType);
+			node.setTag(_Array);
 			return arrayType;
 		}
 	}

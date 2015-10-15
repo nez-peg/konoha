@@ -10,12 +10,7 @@ public class Array<T> extends AbstractList<T> implements KonohaArray {
 
 	public Array(T[] values) {
 		this.ArrayValues = values;
-		this.currentSize = 0;
-	}
-
-	public Array(T[] values, int size) {
-		this.ArrayValues = values;
-		this.currentSize = size;
+		this.currentSize = values.length;
 	}
 
 	@Override

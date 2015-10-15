@@ -425,30 +425,33 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 		}
 	}
 
-	private void visitBlockStmt(TypedTree node) {
-		if (node.is(_Block)) {
+	private void visitStatementAsBlock(TypedTree node) {
+		if (!node.is(_Block)) {
 			visit(node);
 			if (node.getType() != void.class) {
 				mBuilder.pop(node.getClassType());
 			}
 		} else {
-			Block block = new Block();
-			block.accept(node);
+			visitBlock(node);
 		}
+	}
+
+	private void visitBlock(TypedTree node) {
+		mBuilder.enterScope();
+		for (TypedTree stmt : node) {
+			mBuilder.setLineNum(node.getLineNum()); // FIXME
+			visit(stmt);
+			if (stmt.getType() != void.class) {
+				mBuilder.pop(stmt.getClassType());
+			}
+		}
+		mBuilder.exitScope();
 	}
 
 	public class Block extends Undefined {
 		@Override
 		public void accept(TypedTree node) {
-			mBuilder.enterScope();
-			for (TypedTree stmt : node) {
-				mBuilder.setLineNum(node.getLineNum()); // FIXME
-				visit(stmt);
-				if (stmt.getType() != void.class) {
-					mBuilder.pop(stmt.getClassType());
-				}
-			}
-			mBuilder.exitScope();
+			visitBlock(node);
 		}
 	}
 
@@ -464,13 +467,13 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 			mBuilder.ifCmp(Type.BOOLEAN_TYPE, GeneratorAdapter.NE, elseLabel);
 
 			// then
-			visitBlockStmt(node.get(_then));
+			visitStatementAsBlock(node.get(_then));
 			mBuilder.goTo(mergeLabel);
 
 			// else
 			mBuilder.mark(elseLabel);
 			if (node.size() > 2) {
-				visitBlockStmt(node.get(_else));
+				visitStatementAsBlock(node.get(_else));
 			}
 
 			// merge
@@ -516,7 +519,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 
 			// Block
 			mBuilder.mark(beginLabel);
-			visitBlockStmt(node.get(_body));
+			visitStatementAsBlock(node.get(_body));
 
 			// Condition
 			mBuilder.mark(condLabel);
@@ -539,7 +542,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 
 			// Do
 			mBuilder.mark(beginLabel);
-			visitBlockStmt(node.get(_body));
+			visitStatementAsBlock(node.get(_body));
 
 			// Condition
 			mBuilder.mark(continueLabel);
@@ -563,7 +566,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 
 			// Initialize
 			if (node.has(_init)) {
-				visitBlockStmt(node.get(_init));
+				visitStatementAsBlock(node.get(_init));
 			}
 
 			mBuilder.goTo(condLabel);
@@ -571,11 +574,11 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 			// Block
 			mBuilder.mark(beginLabel);
 			if (node.has(_body)) {
-				visitBlockStmt(node.get(_body));
+				visitStatementAsBlock(node.get(_body));
 			}
 			mBuilder.mark(continueLabel);
 			if (node.has(_iter)) {
-				visitBlockStmt(node.get(_iter));
+				visitStatementAsBlock(node.get(_iter));
 			}
 			// if (node.get(_iter).getType() != Type.VOID_TYPE) {
 			// mBuilder.pop();
@@ -612,7 +615,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 			for (int i = 0; i < size; i++) {
 				labels[i] = mBuilder.newLabel();
 				mBuilder.mark(labels[i]);
-				visitBlockStmt(body.get(i));
+				visitStatementAsBlock(body.get(i));
 			}
 			mBuilder.goTo(breakLabel);
 

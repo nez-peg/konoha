@@ -8,6 +8,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.HashMap;
 
+import konoha.ArrayInt;
 import konoha.DynamicOperator;
 import konoha.Function;
 import konoha.StaticOperator;
@@ -69,8 +70,24 @@ public class TypeSystem implements CommonSymbols {
 		return this.TypeNames.get(name);
 	}
 
+	/* ArrayType */
+
 	public Type newArrayType(Type elementType) {
 		return GenericType.newType(konoha.Array.class, elementType);
+	}
+
+	public static Type getArrayElementType(Type atype) {
+		if (atype instanceof GenericType) {
+			return ((GenericType) atype).getParameterTypes()[0];
+		}
+		if (atype == ArrayInt.class) {
+			return int.class;
+		}
+		return Object.class;
+	}
+
+	public static Class<?> getArrayElementClass(Type atype) {
+		return toClass(getArrayElementType(atype));
 	}
 
 	/* FuncType */

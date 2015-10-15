@@ -1,21 +1,12 @@
 package konoha;
 
-public class IArray<T> implements KonohaArray {
+public class ArrayInt<T> implements KonohaArray {
 	private int currentSize;
 	public int[] ArrayValues;
 
-	public IArray(int[] v) {
+	public ArrayInt(int[] v) {
 		this.ArrayValues = v;
-		this.currentSize = 0;
-	}
-
-	public IArray(Object[] v, int size) {
-		this.ArrayValues = new int[v.length];
-		this.currentSize = size;
-		for (int i = 0; i < v.length; i++) {
-			Object o = v[i];
-			this.ArrayValues[i] = (o instanceof Number) ? ((Number) o).intValue() : 0;
-		}
+		this.currentSize = v.length;
 	}
 
 	@Override
@@ -31,7 +22,7 @@ public class IArray<T> implements KonohaArray {
 		return this.ArrayValues[index];
 	}
 
-	public final int get(int index, int value) {
+	public final int set(int index, int value) {
 		return this.ArrayValues[index];
 	}
 
