@@ -81,7 +81,8 @@ public class ScriptCompiler {
 	}
 
 	public void compileClassDecl(Tree<?> node) {
-
+		String name = node.getText(CommonSymbols._name, null);
+		Class<?> clazz = this.asm.compileClass((TypedTree) node);
 	}
 
 	public Class<?> compileFuncDecl(Tree<?> node) {
