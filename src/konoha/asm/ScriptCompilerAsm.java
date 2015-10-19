@@ -442,12 +442,11 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 		@Override
 		public void accept(TypedTree node) {
 			// TODO
-			TypedTree list = node.get(_list);
-			for (TypedTree field : list) {
-				// this.cBuilder.addField(Opcodes.ACC_PUBLIC,
-				// field.getText(_name,
-				// null), this.typeof(field), );
-			}
+			// TypedTree list = node.get(_list);
+			// for (TypedTree field : list) {
+			// cBuilder.addField(Opcodes.ACC_PUBLIC, field.getText(_name, null),
+			// this.typeof(field), );
+			// }
 		}
 	}
 
@@ -717,6 +716,8 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 			result = left / right;
 		} else if (node.is(_Integer)) {
 			result = (int) node.getValue();
+		} else if (node.is(_String)) {
+			result = ((String) node.getValue()).hashCode();
 		}
 		return result;
 	}
@@ -775,16 +776,18 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 			// Condition
 			mBuilder.mark(condLabel);
 			visit(node.get(_cond));
-			if (condType == int.class) {
-				// if (isTableSwitch(keys)) {
-				// mBuilder.visitTableSwitchInsn(arg0, arg1, dfltLabel, labels);
-				// } else {
-				// mBuilder.visitLookupSwitchInsn(dfltLabel, keys, labels);
-				// }
-				mBuilder.visitLookupSwitchInsn(dfltLabel, keys, labels);
-			} else if (condType == String.class) {
-
+			if (condType == String.class) {
+				mBuilder.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/String", "hashCode", "()I", false);
 			}
+			mBuilder.visitLookupSwitchInsn(dfltLabel, keys, labels);
+			// if (condType == int.class) {
+			// if (isTableSwitch(keys)) {
+			// mBuilder.visitTableSwitchInsn(arg0, arg1, dfltLabel, labels);
+			// } else {
+			// mBuilder.visitLookupSwitchInsn(dfltLabel, keys, labels);
+			// }
+			// } else if (condType == String.class) {
+			// }
 
 			int i = 0;
 			// Case and Default Block
@@ -796,6 +799,9 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 					mBuilder.mark(dfltLabel);
 				}
 				visit(sub.get(_body));
+			}
+			if (!has(_SwitchDefault, body)) {
+				mBuilder.mark(dfltLabel);
 			}
 			mBuilder.mark(breakLabel);
 		}
