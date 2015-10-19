@@ -1083,7 +1083,10 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 		@Override
 		public Type accept(TypedTree node) {
 			try {
-				String n = node.toText();
+				String n = node.toText().replace("_", "");
+				if (n.endsWith("L") || n.endsWith("l")) {
+					n = n.substring(0, n.length() - 1);
+				}
 				return node.setConst(long.class, Long.parseLong(n));
 			} catch (NumberFormatException e) {
 				typeSystem.reportWarning(node, e.getMessage());
@@ -1099,7 +1102,10 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 		@Override
 		public Type accept(TypedTree node) {
 			try {
-				String n = node.toText();
+				String n = node.toText().replace("_", "");
+				if (n.endsWith("D") || n.endsWith("d") || n.endsWith("F") || n.endsWith("f")) {
+					n = n.substring(0, n.length() - 1);
+				}
 				return node.setConst(double.class, Double.parseDouble(n));
 			} catch (NumberFormatException e) {
 				typeSystem.reportWarning(node, e.getMessage());
