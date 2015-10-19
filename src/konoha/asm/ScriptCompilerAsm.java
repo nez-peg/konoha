@@ -2,6 +2,8 @@ package konoha.asm;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.Arrays;
 
 import konoha.main.ConsoleUtils;
 import konoha.script.CommonSymbols;
@@ -271,6 +273,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 	}
 
 	public Class<?> closeClass() {
+		// typeSystem.setVerboseMode(true);
 		Class<?> c = cLoader.definedAndLoadClass(this.cBuilder.getQualifiedClassName(), cBuilder.toByteArray());
 		this.cBuilder = null;
 		return c;
@@ -626,7 +629,6 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 		}
 	}
 
-	// private int switchUnique = 0;
 	//
 	// public class Switch extends Undefined {
 	// @Override
@@ -680,66 +682,6 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 	// mBuilder.getLoopLabels().pop();
 	// }
 	// }
-	private boolean isTableSwitch(int[] keys) {
-		int min = keys[0];
-		int max = keys[0];
-		for (int n : keys) {
-			if (min > n) {
-				min = n;
-			} else if (max < n) {
-				max = n;
-			}
-		}
-		if (max - min == keys.length - 1) {
-			return true;
-		}
-		return false;
-	}
-
-	private int evalKey(TypedTree node) {
-		int result = 0;
-		if (node.is(_Add)) {
-			int left = evalKey(node.get(_left));
-			int right = evalKey(node.get(_right));
-			result = left + right;
-		} else if (node.is(_Sub)) {
-			int left = evalKey(node.get(_left));
-			int right = evalKey(node.get(_right));
-			result = left - right;
-		} else if (node.is(_Mul)) {
-			int left = evalKey(node.get(_left));
-			int right = evalKey(node.get(_right));
-			result = left * right;
-		} else if (node.is(_Div)) {
-			int left = evalKey(node.get(_left));
-			int right = evalKey(node.get(_right));
-			result = left / right;
-		} else if (node.is(_Integer)) {
-			result = (int) node.getValue();
-		} else if (node.is(_String)) {
-			result = ((String) node.getValue()).hashCode();
-		}
-		return result;
-	}
-
-	private int[] getSwitchKeys(TypedTree node) {
-		TypedTree body = node.get(_body);
-		int size;
-		if (has(_SwitchDefault, body)) {
-			size = body.size() - 1;
-		} else {
-			size = body.size();
-		}
-		int[] keys = new int[size];
-		int j = 0;
-		for (TypedTree caseNode : body) {
-			if (caseNode.is(_SwitchCase)) {
-				keys[j] = evalKey(caseNode.get(_cond));
-				j++;
-			}
-		}
-		return keys;
-	}
 
 	private boolean has(Symbol tag, TypedTree node) {
 		for (TypedTree sub : node) {
@@ -750,9 +692,81 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 		return false;
 	}
 
+	private int switchUnique = 0;
+
 	public class Switch extends Undefined {
 		@Override
 		public void accept(TypedTree node) {
+			Class<?> condType = node.get(_cond).getClassType();
+			if (condType == int.class) {
+				acceptIntSwitch(node);
+			} else if (condType == String.class) {
+				acceptStringSwitch(node);
+			}
+		}
+
+		// private boolean isTableSwitch(int[] keys) {
+		// int min = keys[0];
+		// int max = keys[0];
+		// for (int n : keys) {
+		// if (min > n) {
+		// min = n;
+		// } else if (max < n) {
+		// max = n;
+		// }
+		// }
+		// if (max - min == keys.length - 1) {
+		// return true;
+		// }
+		// return false;
+		// }
+
+		private int evalKey(TypedTree node) {
+			int result = 0;
+			if (node.is(_Add)) {
+				int left = evalKey(node.get(_left));
+				int right = evalKey(node.get(_right));
+				result = left + right;
+			} else if (node.is(_Sub)) {
+				int left = evalKey(node.get(_left));
+				int right = evalKey(node.get(_right));
+				result = left - right;
+			} else if (node.is(_Mul)) {
+				int left = evalKey(node.get(_left));
+				int right = evalKey(node.get(_right));
+				result = left * right;
+			} else if (node.is(_Div)) {
+				int left = evalKey(node.get(_left));
+				int right = evalKey(node.get(_right));
+				result = left / right;
+			} else if (node.is(_Integer)) {
+				result = (int) node.getValue();
+			} else if (node.is(_String)) {
+				result = ((String) node.getValue()).hashCode();
+			}
+			return result;
+		}
+
+		private SwitchCase[] getSwitchKeys(TypedTree node) {
+			TypedTree body = node.get(_body);
+			int size;
+			if (has(_SwitchDefault, body)) {
+				size = body.size() - 1;
+			} else {
+				size = body.size();
+			}
+			SwitchCase keys[] = new SwitchCase[size];
+			int j = 0;
+			for (TypedTree caseNode : body) {
+				if (caseNode.is(_SwitchCase)) {
+					keys[j] = new SwitchCase(j, evalKey(caseNode.get(_cond)), caseNode.get(_cond).getValue());
+					j++;
+				}
+			}
+			return keys;
+		}
+
+		private void acceptIntSwitch(TypedTree node) {
 			Label condLabel = mBuilder.newLabel();
 			Label breakLabel = mBuilder.newLabel();
 			mBuilder.getLoopLabels().push(new Pair<Label, Label>(breakLabel, null));
@@ -764,21 +778,24 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 				size = body.size();
 			}
 
-			Class<?> condType = node.get(_cond).getClassType();
-
 			Label dfltLabel = mBuilder.newLabel();
 			Label[] labels = new Label[size];
 			for (int i = 0; i < size; i++) {
 				labels[i] = mBuilder.newLabel();
 			}
-			int keys[] = getSwitchKeys(node);
+			// keys must be ascending order
+			SwitchCase cases[] = getSwitchKeys(node);
+			Arrays.sort(cases);
+			int[] keys = new int[size];
+			int[] indexes = new int[size];
+			for (int i = 0; i < size; i++) {
+				keys[i] = cases[i].getKey();
+				indexes[i] = cases[i].getIndex();
+			}
 
 			// Condition
 			mBuilder.mark(condLabel);
 			visit(node.get(_cond));
-			if (condType == String.class) {
-				mBuilder.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/String", "hashCode", "()I", false);
-			}
 			mBuilder.visitLookupSwitchInsn(dfltLabel, keys, labels);
 			// if (condType == int.class) {
 			// if (isTableSwitch(keys)) {
@@ -793,7 +810,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 			// Case and Default Block
 			for (TypedTree sub : body) {
 				if (sub.is(_SwitchCase)) {
-					mBuilder.mark(labels[i]);
+					mBuilder.mark(labels[indexes[i]]);
 					i++;
 				} else if (sub.is(_SwitchDefault)) {
 					mBuilder.mark(dfltLabel);
@@ -804,6 +821,100 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 				mBuilder.mark(dfltLabel);
 			}
 			mBuilder.mark(breakLabel);
+		}
+
+		private void acceptStringSwitch(TypedTree node) {
+			Label condLabel = mBuilder.newLabel();
+			Label breakLabel = mBuilder.newLabel();
+			mBuilder.getLoopLabels().push(new Pair<Label, Label>(breakLabel, null));
+			TypedTree body = node.get(_body);
+			int size;
+			if (has(_SwitchDefault, body)) {
+				size = body.size() - 1;
+			} else {
+				size = body.size();
+			}
+
+			Label dfltLabel = mBuilder.newLabel();
+
+			// keys must be ascending order
+			SwitchCase cases[] = getSwitchKeys(node);
+			Arrays.sort(cases);
+			int[] indexes = new int[size];
+			for (int i = 0; i < size; i++) {
+				indexes[i] = cases[i].getIndex();
+				if (i > 0 && cases[i].getKey() == cases[i - 1].getKey()) {
+					cases[i].setChecklabel(cases[i - 1].getChecklabel());
+				} else {
+					cases[i].setChecklabel(mBuilder.newLabel());
+				}
+				cases[i].setEvalLabel(mBuilder.newLabel());
+			}
+			ArrayList<Integer> keyList = new ArrayList<>();
+			ArrayList<Label> checkLabels = new ArrayList<>();
+			for (int i = 0; i < size; i++) {
+				if (i > 0 && cases[i].getKey() == cases[i - 1].getKey()) {
+				} else {
+					checkLabels.add(cases[i].getChecklabel());
+					keyList.add(cases[i].getKey());
+				}
+			}
+			int[] keys = new int[keyList.size()];
+			for (int i = 0; i < keyList.size(); i++) {
+				keys[i] = keyList.get(i);
+			}
+
+			// Condition
+			mBuilder.mark(condLabel);
+			visit(node.get(_cond));
+			VarEntry condVar = mBuilder.createNewVarAndStore("#SWITCH_KEY" + switchUnique, String.class);
+			switchUnique++;
+			visit(node.get(_cond));
+			mBuilder.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/String", "hashCode", "()I", false);
+			Label[] labels = new Label[checkLabels.size()];
+			mBuilder.visitLookupSwitchInsn(dfltLabel, keys, checkLabels.toArray(labels));
+
+			for (int i = 0; i < size; i++) {
+				while (i > 0 && i < size && cases[i].getKey() == cases[i - 1].getKey()) {
+					mBuilder.loadFromVar(condVar);
+					mBuilder.visitLdcInsn(cases[i].getValue());
+					mBuilder.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/String", "equals", "(Ljava/lang/Object;)Z", false);
+					mBuilder.visitJumpInsn(Opcodes.IFNE, cases[i].getEvalLabel());
+					i++;
+				}
+				if (i < size) {
+					mBuilder.mark(cases[i].getChecklabel());
+					mBuilder.loadFromVar(condVar);
+					mBuilder.visitLdcInsn(cases[i].getValue());
+					mBuilder.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/String", "equals", "(Ljava/lang/Object;)Z", false);
+					mBuilder.visitJumpInsn(Opcodes.IFNE, cases[i].getEvalLabel());
+				}
+			}
+
+			int i = 0;
+			// Case and Default Block
+			for (TypedTree sub : body) {
+				if (sub.is(_SwitchCase)) {
+					mBuilder.mark(cases[indexOf(indexes, i)].getEvalLabel());
+					i++;
+				} else if (sub.is(_SwitchDefault)) {
+					mBuilder.mark(dfltLabel);
+				}
+				visit(sub.get(_body));
+			}
+			if (!has(_SwitchDefault, body)) {
+				mBuilder.mark(dfltLabel);
+			}
+			mBuilder.mark(breakLabel);
+		}
+
+		private int indexOf(int[] array, int value) {
+			for (int i = 0; i < array.length; i++) {
+				if (array[i] == value) {
+					return i;
+				}
+			}
+			return -1;
 		}
 	}
 
