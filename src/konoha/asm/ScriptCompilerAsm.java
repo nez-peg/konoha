@@ -2,12 +2,15 @@ package konoha.asm;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.Arrays;
 
 import konoha.main.ConsoleUtils;
 import konoha.script.CommonSymbols;
 import konoha.script.Hint;
 import konoha.script.TypeSystem;
 import konoha.script.TypedTree;
+import nez.ast.Symbol;
 import nez.ast.TreeVisitor2;
 
 import org.objectweb.asm.Label;
@@ -270,6 +273,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 	}
 
 	public Class<?> closeClass() {
+		// typeSystem.setVerboseMode(true);
 		Class<?> c = cLoader.definedAndLoadClass(this.cBuilder.getQualifiedClassName(), cBuilder.toByteArray());
 		this.cBuilder = null;
 		return c;
@@ -366,24 +370,53 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 		}
 	}
 
+	/* class */
+	public Class<?> compileClass(TypedTree node) {
+		String name = node.getText(_name, null);
+		TypedTree implNode = node.get(_impl, null);
+		TypedTree bodyNode = node.get(_body, null);
+		Class<?> superClass = null;
+		if (node.has(_super)) {
+			superClass = typeSystem.getType(classPath + node.getText(_super, null)).getClass();
+		}
+		Class<?>[] implClasses = null;
+		if (implNode != null) {
+			implClasses = new Class<?>[implNode.size()];
+			for (int i = 0; i < implNode.size(); i++) {
+				implClasses[i] = typeSystem.getType(classPath + implNode.getText(i, null)).getClass();
+			}
+		}
+		openClass(name, superClass, implClasses);
+		this.cBuilder.visitSource(node.getSource().getResourceName(), null);
+		for (TypedTree n : bodyNode) {
+			visit(n);
+		}
+		return closeClass();
+	}
+
 	public class ClassDecl extends Undefined {
 		@Override
 		public void accept(TypedTree node) {
-			// String name = node.getText(_name, null);
-			// TypedTree implNode = node.get(_impl);
-			// TypedTree bodyNode = node.get(_body);
-			// Class<?> superClass = Class.forName(classPath +
-			// node.getText(_super, null));
-			// Class<?>[] implClasses = new Class<?>[implNode.size()];
-			// for (int i = 0; i < implNode.size(); i++) {
-			// implClasses[i] = Class.forName(classPath + implNode.getText(i,
-			// null));
-			// }
-			// openClass(name, superClass, implClasses);
-			// for (TypedTree n : bodyNode) {
-			// visit(n);
-			// }
-			// closeClass();
+			String name = node.getText(_name, null);
+			TypedTree implNode = node.get(_impl, null);
+			TypedTree bodyNode = node.get(_body, null);
+			Class<?> superClass = null;
+			if (node.has(_super)) {
+				superClass = typeSystem.getType(classPath + node.getText(_super, null)).getClass();
+			}
+			Class<?>[] implClasses = null;
+			if (implNode != null) {
+				implClasses = new Class<?>[implNode.size()];
+				for (int i = 0; i < implNode.size(); i++) {
+					implClasses[i] = typeSystem.getType(classPath + implNode.getText(i, null)).getClass();
+				}
+			}
+			openClass(name, superClass, implClasses);
+			cBuilder.visitSource(node.getSource().getResourceName(), null);
+			for (TypedTree n : bodyNode) {
+				visit(n);
+			}
+			closeClass();
 		}
 	}
 
@@ -412,12 +445,11 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 		@Override
 		public void accept(TypedTree node) {
 			// TODO
-			TypedTree list = node.get(_list);
-			for (TypedTree field : list) {
-				// this.cBuilder.addField(Opcodes.ACC_PUBLIC,
-				// field.getText(_name,
-				// null), this.typeof(field), );
-			}
+			// TypedTree list = node.get(_list);
+			// for (TypedTree field : list) {
+			// cBuilder.addField(Opcodes.ACC_PUBLIC, field.getText(_name, null),
+			// this.typeof(field), );
+			// }
 		}
 	}
 
@@ -597,58 +629,292 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 		}
 	}
 
+	//
+	// public class Switch extends Undefined {
+	// @Override
+	// public void accept(TypedTree node) {
+	// Label condLabel = mBuilder.newLabel();
+	// Label breakLabel = mBuilder.newLabel();
+	// mBuilder.getLoopLabels().push(new Pair<Label, Label>(breakLabel, null));
+	//
+	// Class<?> condType = node.get(_cond).getClassType();
+	// TypedTree body = node.get(_body);
+	// int size = body.size();
+	// Label labels[] = new Label[size];
+	// int dfIndex = -1;
+	//
+	// mBuilder.goTo(condLabel);
+	//
+	// // Block
+	// for (int i = 0; i < size; i++) {
+	// labels[i] = mBuilder.newLabel();
+	// mBuilder.mark(labels[i]);
+	// visitStatementAsBlock(body.get(i));
+	// }
+	// mBuilder.goTo(breakLabel);
+	//
+	// // Condition
+	// mBuilder.mark(condLabel);
+	// visit(node.get(_cond));
+	// String condValName = "#SwitchCondValue" + switchUnique;
+	// VarEntry condVar = mBuilder.createNewVarAndStore(condValName, condType);
+	// switchUnique++;
+	//
+	// for (int i = 0; i < size; i++) {
+	// TypedTree condNode = body.get(i).get(_cond);
+	// if (condLabel != null) {
+	// // SwitchCase
+	// mBuilder.loadFromVar(condVar);
+	// visit(condNode);
+	// } else {
+	// // SwitchDefault
+	// dfIndex = i;
+	// }
+	// mBuilder.ifCmp(Type.getType(condType), Opcodes.IFEQ, labels[i]);
+	// }
+	//
+	// // HasDefault
+	// if (dfIndex != -1) {
+	// mBuilder.goTo(labels[dfIndex]);
+	// }
+	//
+	// mBuilder.mark(breakLabel);
+	// mBuilder.getLoopLabels().pop();
+	// }
+	// }
+
+	private boolean has(Symbol tag, TypedTree node) {
+		for (TypedTree sub : node) {
+			if (sub.is(tag)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	private int switchUnique = 0;
 
 	public class Switch extends Undefined {
 		@Override
 		public void accept(TypedTree node) {
+			Class<?> condType = node.get(_cond).getClassType();
+			if (condType == int.class) {
+				acceptIntSwitch(node);
+			} else if (condType == String.class) {
+				acceptStringSwitch(node);
+			}
+		}
+
+		// private boolean isTableSwitch(int[] keys) {
+		// int min = keys[0];
+		// int max = keys[0];
+		// for (int n : keys) {
+		// if (min > n) {
+		// min = n;
+		// } else if (max < n) {
+		// max = n;
+		// }
+		// }
+		// if (max - min == keys.length - 1) {
+		// return true;
+		// }
+		// return false;
+		// }
+
+		private int evalKey(TypedTree node) {
+			int result = 0;
+			if (node.is(_Add)) {
+				int left = evalKey(node.get(_left));
+				int right = evalKey(node.get(_right));
+				result = left + right;
+			} else if (node.is(_Sub)) {
+				int left = evalKey(node.get(_left));
+				int right = evalKey(node.get(_right));
+				result = left - right;
+			} else if (node.is(_Mul)) {
+				int left = evalKey(node.get(_left));
+				int right = evalKey(node.get(_right));
+				result = left * right;
+			} else if (node.is(_Div)) {
+				int left = evalKey(node.get(_left));
+				int right = evalKey(node.get(_right));
+				result = left / right;
+			} else if (node.is(_Integer)) {
+				result = (int) node.getValue();
+			} else if (node.is(_String)) {
+				result = ((String) node.getValue()).hashCode();
+			}
+			return result;
+		}
+
+		private SwitchCase[] getSwitchKeys(TypedTree node) {
+			TypedTree body = node.get(_body);
+			int size;
+			if (has(_SwitchDefault, body)) {
+				size = body.size() - 1;
+			} else {
+				size = body.size();
+			}
+			SwitchCase keys[] = new SwitchCase[size];
+			int j = 0;
+			for (TypedTree caseNode : body) {
+				if (caseNode.is(_SwitchCase)) {
+					keys[j] = new SwitchCase(j, evalKey(caseNode.get(_cond)), caseNode.get(_cond).getValue());
+					j++;
+				}
+			}
+			return keys;
+		}
+
+		private void acceptIntSwitch(TypedTree node) {
 			Label condLabel = mBuilder.newLabel();
 			Label breakLabel = mBuilder.newLabel();
 			mBuilder.getLoopLabels().push(new Pair<Label, Label>(breakLabel, null));
-
-			Class<?> condType = node.get(_cond).getClassType();
 			TypedTree body = node.get(_body);
-			int size = body.size();
-			Label labels[] = new Label[size];
-			int dfIndex = -1;
+			int size;
+			if (has(_SwitchDefault, body)) {
+				size = body.size() - 1;
+			} else {
+				size = body.size();
+			}
 
-			mBuilder.goTo(condLabel);
-
-			// Block
+			Label dfltLabel = mBuilder.newLabel();
+			Label[] labels = new Label[size];
 			for (int i = 0; i < size; i++) {
 				labels[i] = mBuilder.newLabel();
-				mBuilder.mark(labels[i]);
-				visitStatementAsBlock(body.get(i));
 			}
-			mBuilder.goTo(breakLabel);
+			// keys must be ascending order
+			SwitchCase cases[] = getSwitchKeys(node);
+			Arrays.sort(cases);
+			int[] keys = new int[size];
+			int[] indexes = new int[size];
+			for (int i = 0; i < size; i++) {
+				keys[i] = cases[i].getKey();
+				indexes[i] = cases[i].getIndex();
+			}
 
 			// Condition
 			mBuilder.mark(condLabel);
 			visit(node.get(_cond));
-			String condValName = "#SwitchCondValue" + switchUnique;
-			VarEntry condVar = mBuilder.createNewVarAndStore(condValName, condType);
+			mBuilder.visitLookupSwitchInsn(dfltLabel, keys, labels);
+			// if (condType == int.class) {
+			// if (isTableSwitch(keys)) {
+			// mBuilder.visitTableSwitchInsn(arg0, arg1, dfltLabel, labels);
+			// } else {
+			// mBuilder.visitLookupSwitchInsn(dfltLabel, keys, labels);
+			// }
+			// } else if (condType == String.class) {
+			// }
+
+			int i = 0;
+			// Case and Default Block
+			for (TypedTree sub : body) {
+				if (sub.is(_SwitchCase)) {
+					mBuilder.mark(labels[indexes[i]]);
+					i++;
+				} else if (sub.is(_SwitchDefault)) {
+					mBuilder.mark(dfltLabel);
+				}
+				visit(sub.get(_body));
+			}
+			if (!has(_SwitchDefault, body)) {
+				mBuilder.mark(dfltLabel);
+			}
+			mBuilder.mark(breakLabel);
+		}
+
+		private void acceptStringSwitch(TypedTree node) {
+			Label condLabel = mBuilder.newLabel();
+			Label breakLabel = mBuilder.newLabel();
+			mBuilder.getLoopLabels().push(new Pair<Label, Label>(breakLabel, null));
+			TypedTree body = node.get(_body);
+			int size;
+			if (has(_SwitchDefault, body)) {
+				size = body.size() - 1;
+			} else {
+				size = body.size();
+			}
+
+			Label dfltLabel = mBuilder.newLabel();
+
+			// keys must be ascending order
+			SwitchCase cases[] = getSwitchKeys(node);
+			Arrays.sort(cases);
+			int[] indexes = new int[size];
+			for (int i = 0; i < size; i++) {
+				indexes[i] = cases[i].getIndex();
+				if (i > 0 && cases[i].getKey() == cases[i - 1].getKey()) {
+					cases[i].setChecklabel(cases[i - 1].getChecklabel());
+				} else {
+					cases[i].setChecklabel(mBuilder.newLabel());
+				}
+				cases[i].setEvalLabel(mBuilder.newLabel());
+			}
+			ArrayList<Integer> keyList = new ArrayList<>();
+			ArrayList<Label> checkLabels = new ArrayList<>();
+			for (int i = 0; i < size; i++) {
+				if (i > 0 && cases[i].getKey() == cases[i - 1].getKey()) {
+				} else {
+					checkLabels.add(cases[i].getChecklabel());
+					keyList.add(cases[i].getKey());
+				}
+			}
+			int[] keys = new int[keyList.size()];
+			for (int i = 0; i < keyList.size(); i++) {
+				keys[i] = keyList.get(i);
+			}
+
+			// Condition
+			mBuilder.mark(condLabel);
+			visit(node.get(_cond));
+			VarEntry condVar = mBuilder.createNewVarAndStore("#SWITCH_KEY" + switchUnique, String.class);
 			switchUnique++;
+			visit(node.get(_cond));
+			mBuilder.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/String", "hashCode", "()I", false);
+			Label[] labels = new Label[checkLabels.size()];
+			mBuilder.visitLookupSwitchInsn(dfltLabel, keys, checkLabels.toArray(labels));
 
 			for (int i = 0; i < size; i++) {
-				TypedTree condNode = body.get(i).get(_cond);
-				if (condLabel != null) {
-					// SwitchCase
+				while (i > 0 && i < size && cases[i].getKey() == cases[i - 1].getKey()) {
 					mBuilder.loadFromVar(condVar);
-					visit(condNode);
-				} else {
-					// SwitchDefault
-					dfIndex = i;
+					mBuilder.visitLdcInsn(cases[i].getValue());
+					mBuilder.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/String", "equals", "(Ljava/lang/Object;)Z", false);
+					mBuilder.visitJumpInsn(Opcodes.IFNE, cases[i].getEvalLabel());
+					i++;
 				}
-				mBuilder.ifCmp(Type.getType(condType), Opcodes.IFEQ, labels[i]);
+				if (i < size) {
+					mBuilder.mark(cases[i].getChecklabel());
+					mBuilder.loadFromVar(condVar);
+					mBuilder.visitLdcInsn(cases[i].getValue());
+					mBuilder.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/String", "equals", "(Ljava/lang/Object;)Z", false);
+					mBuilder.visitJumpInsn(Opcodes.IFNE, cases[i].getEvalLabel());
+				}
 			}
 
-			// HasDefault
-			if (dfIndex != -1) {
-				mBuilder.goTo(labels[dfIndex]);
+			int i = 0;
+			// Case and Default Block
+			for (TypedTree sub : body) {
+				if (sub.is(_SwitchCase)) {
+					mBuilder.mark(cases[indexOf(indexes, i)].getEvalLabel());
+					i++;
+				} else if (sub.is(_SwitchDefault)) {
+					mBuilder.mark(dfltLabel);
+				}
+				visit(sub.get(_body));
 			}
-
+			if (!has(_SwitchDefault, body)) {
+				mBuilder.mark(dfltLabel);
+			}
 			mBuilder.mark(breakLabel);
-			mBuilder.getLoopLabels().pop();
+		}
+
+		private int indexOf(int[] array, int value) {
+			for (int i = 0; i < array.length; i++) {
+				if (array[i] == value) {
+					return i;
+				}
+			}
+			return -1;
 		}
 	}
 

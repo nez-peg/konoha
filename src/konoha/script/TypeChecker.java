@@ -429,6 +429,23 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 	// return void.class;
 	// }
 
+	public class Switch extends Undefined {
+		@Override
+		public Type accept(TypedTree node) {
+			Type condType = visit(node.get(_cond));
+			typed(node.get(_cond), condType);
+			for (TypedTree sub : node.get(_body)) {
+				if (sub.has(_cond)) {
+					Type caseCondType = visit(sub.get(_cond));
+					typed(sub.get(_cond), caseCondType);
+				}
+				visit(sub.get(_body));
+				typed(sub, void.class);
+			}
+			return void.class;
+		}
+	}
+
 	public class Try extends Undefined {
 		@Override
 		public Type accept(TypedTree node) {
@@ -452,7 +469,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 			// finally block
 			if (node.has(_finally)) {
 				Type type = visit(node.get(_finally));
-				typed(node.get(_catch), type);
+				// typed(node.get(_finally), type);
 			}
 			return void.class;
 		}
