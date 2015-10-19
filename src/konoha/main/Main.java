@@ -6,8 +6,6 @@ import java.util.LinkedList;
 import java.util.List;
 
 import jline.console.ConsoleReader;
-import jline.console.completer.AnsiStringsCompleter;
-import jline.console.completer.CandidateListCompletionHandler;
 import jline.console.completer.Completer;
 import konoha.message.Message;
 import konoha.script.EmptyResult;
@@ -64,9 +62,12 @@ public class Main {
 
 	public static void shell(ScriptContext sc) throws IOException {
 		sc.setShellMode(true);
+		ConsoleReader console = new ConsoleReader();
+		console.setHistoryEnabled(true);
+		console.setExpandEvents(false);
 		int linenum = 1;
 		String command = null;
-		while ((command = readLine()) != null) {
+		while ((command = readLine(console)) != null) {
 			if (command.trim().equals("")) {
 				continue;
 			}
@@ -106,21 +107,22 @@ public class Main {
 
 	public final static String KonohaVersion = "4.0";
 
-	private static String readLine() throws IOException {
+	private static String readLine(ConsoleReader console) throws IOException {
 		ConsoleUtils.begin(31);
 		ConsoleUtils.println(">>>");
 		ConsoleUtils.end();
 		List<Completer> completors = new LinkedList<Completer>();
 
-		ConsoleReader console = new ConsoleReader();
-		completors.add(new AnsiStringsCompleter("\u001B[1mfoo\u001B[0m", "bar", "\u001B[32mbaz\u001B[0m"));
-		CandidateListCompletionHandler handler = new CandidateListCompletionHandler();
-		handler.setStripAnsi(true);
-		console.setCompletionHandler(handler);
-		for (Completer c : completors) {
-			console.addCompleter(c);
-		}
-		// console.setHistoryEnabled(true);
+		// ConsoleReader console = new ConsoleReader();
+		// completors.add(new AnsiStringsCompleter("\u001B[1mfoo\u001B[0m",
+		// "bar", "\u001B[32mbaz\u001B[0m"));
+		// CandidateListCompletionHandler handler = new
+		// CandidateListCompletionHandler();
+		// handler.setStripAnsi(true);
+		// console.setCompletionHandler(handler);
+		// for (Completer c : completors) {
+		// console.addCompleter(c);
+		// }
 		// History h = console.getHistory();
 		// ("hoge\rhoge");
 		StringBuilder sb = new StringBuilder();
