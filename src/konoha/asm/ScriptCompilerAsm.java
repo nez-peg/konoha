@@ -428,18 +428,21 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 			TypedTree nameNode = node.get(_name);
 			TypedTree args = node.get(_param);
 			String name = nameNode.toText();
-			Class<?> funcType = nameNode.getClassType();
+			Class<?> returnType = nameNode.getClassType();
 			Class<?>[] paramTypes = new Class<?>[args.size()];
 			for (int i = 0; i < paramTypes.length; i++) {
 				paramTypes[i] = args.get(i).getClassType();
 			}
-			mBuilder = cBuilder.newMethodBuilder(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, funcType, name, paramTypes);
+			mBuilder = cBuilder.newMethodBuilder(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, returnType, name, paramTypes);
 			mBuilder.enterScope();
 			for (TypedTree arg : args) {
 				mBuilder.defineArgument(arg.getText(_name, null), arg.getClassType());
 			}
 			visit(node.get(_body));
 			mBuilder.exitScope();
+			if (returnType != void.class) {
+				visitDefaultValue(nameNode);
+			}
 			mBuilder.returnValue();
 			mBuilder.endMethod();
 		}
