@@ -152,7 +152,7 @@ public class ScriptClassLoader extends ClassLoader {
 	private String dumpDirectory = null;
 
 	private void dump(String binaryClassName, byte[] byteCode) {
-		if (enabledDump || this.typeSystem.isVerboseMode() || dumpDirectory != null) {
+		if (enabledDump || dumpDirectory != null) {
 			int index = binaryClassName.lastIndexOf('.');
 			String classFileName = binaryClassName.substring(index + 1) + ".class";
 			if (dumpDirectory != null) {

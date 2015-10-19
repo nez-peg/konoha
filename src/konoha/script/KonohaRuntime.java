@@ -3,14 +3,13 @@ package konoha.script;
 import java.lang.reflect.Method;
 
 import konoha.Function;
-import konoha.asm.FunctorFactory;
 
 public abstract class KonohaRuntime {
 	static private Functor assert_ = null;
 
 	static Functor System_assert() {
 		if (assert_ == null) {
-			assert_ = FunctorFactory.newMethod(Reflector.load(KonohaRuntime.class, "assert_", boolean.class, String.class));
+			assert_ = new Functor(Syntax.Function, Reflector.load(KonohaRuntime.class, "assert_", boolean.class, String.class));
 		}
 		return assert_;
 	}
@@ -23,7 +22,7 @@ public abstract class KonohaRuntime {
 
 	static Functor error() {
 		if (StaticErrorMethod == null) {
-			StaticErrorMethod = FunctorFactory.newMethod(Reflector.load(KonohaRuntime.class, "error", String.class));
+			StaticErrorMethod = new Functor(Syntax.Function, Reflector.load(KonohaRuntime.class, "error", String.class));
 		}
 		return StaticErrorMethod;
 	}
@@ -36,7 +35,7 @@ public abstract class KonohaRuntime {
 
 	static Functor String_join() {
 		if (String_join == null) {
-			String_join = FunctorFactory.newMethod(Reflector.load(KonohaRuntime.class, "String_join", Object[].class));
+			String_join = new Functor(Syntax.Function, Reflector.load(KonohaRuntime.class, "String_join", Object[].class));
 		}
 		return String_join;
 	}
@@ -55,7 +54,7 @@ public abstract class KonohaRuntime {
 
 	static Functor Object_invokeDynamic() {
 		if (Object_invokeDynamic == null) {
-			Object_invokeDynamic = FunctorFactory.newMethod(Reflector.load(KonohaRuntime.class, "Object_invokeDynamic", Object.class, String.class, Object[].class));
+			Object_invokeDynamic = new Functor(Syntax.Function, Reflector.load(KonohaRuntime.class, "Object_invokeDynamic", Object.class, String.class, Object[].class));
 		}
 		return Object_invokeDynamic;
 	}
@@ -73,7 +72,7 @@ public abstract class KonohaRuntime {
 
 	static Functor Object_getField() {
 		if (Object_getField == null) {
-			Object_getField = FunctorFactory.newMethod(Reflector.load(KonohaRuntime.class, "Object_getField", Object.class, String.class));
+			Object_getField = new Functor(Syntax.Function, Reflector.load(KonohaRuntime.class, "Object_getField", Object.class, String.class));
 		}
 		return Object_getField;
 	}
@@ -86,7 +85,7 @@ public abstract class KonohaRuntime {
 
 	static Functor Object_setField() {
 		if (Object_setField == null) {
-			Object_setField = FunctorFactory.newMethod(Reflector.load(KonohaRuntime.class, "Object_setField", Object.class, String.class, Object.class));
+			Object_setField = new Functor(Syntax.Function, Reflector.load(KonohaRuntime.class, "Object_setField", Object.class, String.class, Object.class));
 		}
 		return Object_setField;
 	}
@@ -100,7 +99,7 @@ public abstract class KonohaRuntime {
 
 	static Functor Object_invokeFunction() {
 		if (Object_invokeFunction == null) {
-			Object_invokeFunction = FunctorFactory.newMethod(Reflector.load(KonohaRuntime.class, "Object_invokeFunction", Function.class, Object[].class));
+			Object_invokeFunction = new Functor(Syntax.Function, Reflector.load(KonohaRuntime.class, "Object_invokeFunction", Function.class, Object[].class));
 		}
 		return Object_invokeFunction;
 	}

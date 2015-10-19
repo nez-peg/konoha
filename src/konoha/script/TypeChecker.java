@@ -1,25 +1,17 @@
 package konoha.script;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 
 import konoha.Function;
-import konoha.asm.FunctorFactory;
 import konoha.message.Message;
-import konoha.script.TypeSystem.BinaryTypeUnifier;
 import nez.ast.Symbol;
 import nez.ast.TreeVisitor2;
 import nez.util.StringUtils;
-import nez.util.UList;
 
-public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefined> implements CommonSymbols {
+public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements CommonSymbols {
 	ScriptContext context;
 	TypeSystem typeSystem;
-
-	// TypeScope scope;
 
 	public TypeChecker(ScriptContext context, TypeSystem typeSystem) {
 		// super(TypedTree.class);
@@ -28,10 +20,11 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 		init(new Undefined());
 	}
 
-	public class Undefined {
-		public Type accept(TypedTree node) {
+	public class Undefined implements SyntaxTreeTypeChecker {
+		@Override
+		public Type acceptType(TypedTree node) {
 			node.formatSourceMessage("error", "unsupproted type rule " + node);
-			typeSystem.TODO("TypeChecker for %s", node);
+			Debug.TODO("TypeChecker for %s", node);
 			return void.class;
 		}
 	}
@@ -61,7 +54,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 	public Type visit(TypedTree node) {
 		Type c = node.getType();
 		if (c == null) {
-			c = find(node).accept(node);
+			c = find(node).acceptType(node);
 			if (c != null) {
 				node.setType(c);
 			}
@@ -70,17 +63,39 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 	}
 
 	private String name(Type t) {
-		return TypeSystem.name(t);
+		return Java.name(t);
 	}
 
 	public void typed(TypedTree node, Type c) {
 		node.setType(c);
 	}
 
+	/* type */
+
+	private Type[] typeArguments(TypedTree params) {
+		if (params.size() == 0) {
+			return emptyTypes;
+		}
+		Type[] types = new Type[params.size()];
+		for (int i = 0; i < params.size(); i++) {
+			types[i] = visit(params.get(i));
+		}
+		return types;
+	}
+
+	private Type[] typeArguments(Type recvType, TypedTree params) {
+		Type[] types = new Type[params.size() + 1];
+		types[0] = recvType;
+		for (int i = 0; i < params.size(); i++) {
+			types[i + 1] = visit(params.get(i));
+		}
+		return types;
+	}
+
 	/* TopLevel */
 	public class Source extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			Type t = null;
 			for (int i = 0; i < node.size(); i++) {
 				TypedTree sub = node.get(i);
@@ -98,7 +113,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class Import extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			return typeImport(node);
 		}
 	}
@@ -138,7 +153,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class FuncDecl extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			return typeFuncDecl(node);
 		}
 	}
@@ -157,16 +172,18 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 				c++;
 			}
 		}
-		/* prototye declration */
 		if (bodyNode == null) {
-			Class<?> funcType = this.typeSystem.getFuncType(returnType, paramTypes);
-			if (typeSystem.hasGlobalVariable(name)) {
-				throw error(node.get(_name), "duplicated name: %s", name);
+			if (returnType != null) {
+				typeSystem.newPrototype(node, returnType, name, paramTypes);
 			}
-			typeSystem.newGlobalVariable(funcType, name);
 			node.done();
 			return void.class;
 		}
+		Functor prototype = typeSystem.getPrototype(returnType, name, paramTypes);
+		if (prototype == null && returnType != null) {
+			prototype = typeSystem.newPrototype(node, returnType, name, paramTypes);
+		}
+		node.setFunctor(prototype);
 		FunctionBuilder f = this.enterFunction(name);
 		if (returnType != null) {
 			f.setReturnType(returnType);
@@ -197,7 +214,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class Return extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			return typeReturn(node);
 		}
 	}
@@ -232,33 +249,25 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	private TypedTree newDefault(TypedTree node, Type type) {
 		if (type == int.class) {
-			return node.newConst(_Integer, int.class, 0);
+			return node.newConst(int.class, 0);
 		}
 		if (type == double.class || type == float.class) {
-			return node.newConst(_Double, double.class, 0.0);
+			return node.newConst(double.class, 0.0);
 		}
 		if (type == long.class) {
-			return node.newConst(_False, boolean.class, false);
+			return node.newConst(boolean.class, false);
 		}
 		if (type == long.class) {
-			return node.newConst(_Long, long.class, 0L);
+			return node.newConst(long.class, 0L);
 		}
-		return node.newConst(_Null, type, null);
-	}
-
-	public boolean verboseTypeInference = true;
-
-	private void reportInferredType(TypedTree node, Message fmt, Object... args) {
-		if (verboseTypeInference) {
-			this.reportWarning(node, fmt, args);
-		}
+		return node.newConst(type, null);
 	}
 
 	/* Statement */
 
 	public class Block extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			if (inFunction()) {
 				function.beginLocalVarScope();
 			}
@@ -272,7 +281,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class StatementList extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			return typeStatementList(node);
 		}
 	}
@@ -290,16 +299,6 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 		return void.class;
 	}
 
-	public void reportWarning(TypedTree node, String fmt, Object... args) {
-		String msg = node.formatSourceMessage("warning", String.format(fmt, args));
-		context.log(msg);
-	}
-
-	public void reportWarning(TypedTree node, Message fmt, Object... args) {
-		String msg = node.formatSourceMessage("warning", String.format(fmt.toString(), args));
-		context.log(msg);
-	}
-
 	public void checkCondition(TypedTree node, Symbol condLabel) {
 		if (node.get(condLabel).is(_Assign)) {
 			this.reportWarning(node.get(condLabel), "==");
@@ -310,22 +309,21 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class Assert extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			checkCondition(node, _cond);
 			if (node.has(_msg)) {
 				enforceType(String.class, node, _msg);
 			} else {
 				String msg = node.get(_cond).formatSourceMessage("assert", "failed");
-				node.make(_cond, node.get(_cond), _msg, node.newConst(_String, String.class, msg));
+				node.make(_cond, node.get(_cond), _msg, node.newConst(String.class, msg));
 			}
-			node.setInterface(Hint.StaticInvocation2, KonohaRuntime.System_assert(), null);
-			return void.class;
+			return functor(node, KonohaRuntime.System_assert());
 		}
 	}
 
 	public class If extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			checkCondition(node, _cond);
 			visit(node.get(_then));
 			if (node.has(_else)) {
@@ -337,7 +335,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class Conditional extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			checkCondition(node, _cond);
 			Type then_t = visit(node.get(_then));
 			Type else_t = visit(node.get(_else));
@@ -350,7 +348,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class While extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			checkInFunction(node);
 			checkCondition(node, _cond);
 			visit(node.get(_body));
@@ -360,7 +358,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class DoWhile extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			checkInFunction(node);
 			checkCondition(node, _cond);
 			visit(node.get(_body));
@@ -370,7 +368,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class Continue extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			checkInFunction(node);
 			return void.class;
 		}
@@ -378,7 +376,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class Break extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			checkInFunction(node);
 			return void.class;
 		}
@@ -386,7 +384,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class For extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			checkInFunction(node);
 			function.beginLocalVarScope();
 			if (node.has(_init)) {
@@ -431,7 +429,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class Try extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			checkInFunction(node);
 			// try block
 			visit(node.get(_try));
@@ -458,8 +456,6 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 		}
 	}
 
-	protected Type[] EmptyArgument = new Type[0];
-
 	// private Type typeIterator(Type req_t, TypedTree node) {
 	// Type iter_t = visit(node.get(_iter));
 	// Method m = typeSystem.resolveObjectMethod(req_t, this.bufferMatcher,
@@ -480,7 +476,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class VarDecl extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			return typeVarDecl(node);
 		}
 	}
@@ -516,7 +512,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class MultiVarDecl extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			Type type = resolveType(node.get(_type), null);
 			for (TypedTree sub : node.get(_list)) {
 				typeVarDecl(type, sub);
@@ -558,7 +554,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 		} else {
 			gv = typeSystem.newGlobalVariable(type, name);
 		}
-		node.setField(Hint.SetField, gv.field);
+		node.setFunctor(gv.setter);
 		typed(node, void.class);
 	}
 
@@ -566,7 +562,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class Expression extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			return visit(node.get(0));
 		}
 	}
@@ -575,7 +571,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class Name extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			Type t = tryCheckNameType(node, true);
 			if (t == null) {
 				String name = node.toText();
@@ -595,7 +591,8 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 		if (this.typeSystem.hasGlobalVariable(name)) {
 			GlobalVariable gv = this.typeSystem.getGlobalVariable(name);
 			if (rewrite) {
-				node.setField(Hint.GetField, gv.field);
+				node.removeSubtree();
+				return functor(node, gv.getGetter());
 			}
 			return gv.getType();
 		}
@@ -604,7 +601,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class Assign extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			return typeAssign(node);
 		}
 	}
@@ -619,40 +616,54 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 	public Type typeAssign(TypedTree node) {
 		TypedTree leftnode = node.get(_left);
 		checkAssignable(leftnode);
-		if (typeSystem.shellMode && !this.inFunction() && leftnode.is(_Name)) {
-			String name = node.getText(_left, null);
-			if (!this.typeSystem.hasGlobalVariable(name)) {
+		Type rightType = visit(node.get(_right));
+		if (leftnode.is(_Indexer)) {
+			// if (leftnode.is(_Indexer)) {
+			// return typeSetIndexer(node, //
+			// node.get(_left).get(_recv), //
+			// node.get(_left).get(_param), //
+			// node.get(_right));
+			// }
+			// return typeAssignIndexer(node);
+		}
+		if (leftnode.is(_Field)) {
+			// return typeAssignField(node);
+		}
+		assert (leftnode.is(_Name));
+		String name = node.getText(_left, "");
+		if (this.inFunction()) {
+			if (this.function.containsVariable(name)) {
+				Type t = this.function.getVarType(name);
+				node.get(_left).setType(t);
+				enforceType(t, node, _right);
+				return t;
+			}
+		}
+		if (!this.typeSystem.hasGlobalVariable(name)) {
+			if (typeSystem.shellMode && !this.inFunction()) {
 				this.typeSystem.newGlobalVariable(Object.class, name);
 			}
 		}
-		if (leftnode.is(_Indexer)) {
-			return typeSetIndexer(node, //
-					node.get(_left).get(_recv), //
-					node.get(_left).get(_param), //
-					node.get(_right));
-		}
-		Type left = visit(leftnode);
-		this.enforceType(left, node, _right);
-		if (leftnode.hint == Hint.GetField) {
-			Field f = leftnode.getField();
-			if (Modifier.isFinal(f.getModifiers())) {
+		if (this.typeSystem.hasGlobalVariable(name)) {
+			GlobalVariable gv = this.typeSystem.getGlobalVariable(name);
+			Functor f = gv.getSetter();
+			if (f == null) {
 				throw error(node.get(_left), Message.ReadOnly);
 			}
-			if (!Modifier.isStatic(f.getModifiers())) {
-				node.set(_left, leftnode.get(_recv));
-				node.rename(_left, _recv);
-			}
-			node.rename(_right, _expr);
-			node.setField(Hint.SetField, f);
+			Type t = gv.getType();
+			enforceType(t, node, _right);
+			node.make(_right, node.get(_right));
+			functor(node, f);
+			return t;
 		}
-		return left;
+		throw error(node.get(_left), Message.UndefinedName_, name);
 	}
 
 	/* Expression */
 
 	public class Cast extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			return typeCast(node);
 		}
 	}
@@ -663,19 +674,20 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 		if (t == null) {
 			throw error(node.get(_type), Message.UndefinedType_, node.getText(_type, ""));
 		}
-		Class<?> req = TypeSystem.toClass(t);
-		Class<?> exp = TypeSystem.toClass(inner);
-		Method m = typeSystem.getCastMethod(exp, req);
-		if (m == null) {
-			m = typeSystem.getConvertMethod(exp, req);
-		}
-		if (m != null) {
-			node.makeFlattenedList(node.get(_expr));
-			return node.setInterface(Hint.StaticInvocation2, FunctorFactory.newMethod(m));
-		}
+		Class<?> req = Java.toClassType(t);
+		Class<?> exp = Java.toClassType(inner);
 		if (req.isAssignableFrom(exp)) { // upcast
 			node.setTag(_UpCast);
 			return t;
+		}
+		Functor f = typeSystem.getCast(exp, req);
+		if (f == null) {
+			f = typeSystem.getConv(exp, req);
+		}
+		if (f != null) {
+			node.makeFlattenedList(node.get(_expr));
+			node.setFunctor(f);
+			return req;
 		}
 		if (exp.isAssignableFrom(req)) { // downcast
 			node.setTag(_DownCast);
@@ -694,7 +706,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class _Field extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			return typeField(node);
 		}
 	}
@@ -703,152 +715,291 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 		if (isStaticClassName(node)) {
 			return typeStaticField(node);
 		}
-		visit(node.get(_recv));
-		Class<?> recvClass = node.get(_recv).getClassType();
+		Type recvType = visit(node.get(_recv));
 		String name = node.getText(_name, "");
-		Field f = typeSystem.getField(recvClass, name);
+		Functor f = typeSystem.getGetter(methodMatcher, recvType, name);
 		if (f != null) {
-			return node.setField(Hint.GetField, f);
+			return found(node, f, methodMatcher, node.get(_recv));
 		}
-		if (typeSystem.isDynamic(recvClass)) {
-			return node.setInterface(Hint.StaticInvocation2, KonohaRuntime.Object_getField(), null);
-		}
-		throw error(node.get(_name), Message.UndefinedField__, name(recvClass), name);
+		// if (typeSystem.isDynamic(recvClass)) {
+		// return node.setInterface(Hint.StaticInvocation2,
+		// KonohaRuntime.Object_getField(), null);
+		// }
+		throw error(node.get(_name), Message.UndefinedField__, name(recvType), name);
 	}
 
 	private Type typeStaticField(TypedTree node) {
 		Class<?> recvClass = this.resolveClass(node.get(_recv), null);
 		String name = node.getText(_name, "");
-		java.lang.reflect.Field f = typeSystem.getField(recvClass, name);
+		Functor f = typeSystem.getStaticGetter(methodMatcher, recvClass, name);
 		if (f != null) {
-			if (!Modifier.isStatic(f.getModifiers())) {
-				throw error(node, Message.UndefinedField__, name(recvClass), name);
-			}
-			return node.setField(Hint.GetField, f);
+			return found(node, f, methodMatcher, node.get(_recv));
 		}
 		throw error(node.get(_name), Message.UndefinedField__, name(recvClass), name);
 	}
 
 	public class Apply extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			return typeApply(node);
 		}
 	}
 
 	public Type typeApply(TypedTree node) {
 		String name = node.getText(_name, "");
-		typeArguments(node.get(_param));
-		if (isRecursiveCall(node, name)) {
-			return node.getType();
-		}
+		Type[] a = typeArguments(node.get(_param));
+		// if (isRecursiveCall(node, name)) {
+		// return node.getType();
+		// }
 		// Type func_t = this.tryCheckNameType(node.get(_name), true);
 		// if (this.typeSystem.isFuncType(func_t)) {
 		// return typeFuncApply(node, func_t, node.get(_param));
 		// }
-		TypeMatcher matcher = this.initTypeMatcher(null);
-		Functor inf = this.resolveFunction(matcher, name, node.get(_param));
-		if (inf == null) {
-			return undefinedMethod(node, matcher, Message.Function_, name);
+		Functor f = this.typeSystem.getFunction(methodMatcher, name, a);
+		if (f != null) {
+			return found(node, f, methodMatcher, node.get(_param));
 		}
-		return node.setInterface(Hint.StaticApplyInterface, inf, matcher);
+		Functor[] unmatched = this.typeSystem.getFunction(name);
+		return unfound(node, unmatched, Message.Function_, name);
 	}
 
-	private void typeArguments(TypedTree params) {
-		for (int i = 0; i < params.size(); i++) {
-			visit(params.get(i));
-		}
-	}
-
-	// private Type[] typeApplyArguments(TypedTree args) {
-	// Type[] types = new Type[args.size()];
-	// for (int i = 0; i < args.size(); i++) {
-	// types[i] = visit(args.get(i));
+	// private boolean isRecursiveCall(TypedTree node, String name) {
+	// if (inFunction() && name.equals(function.getName())) {
+	// Type[] paramTypes = function.getParameterTypes();
+	// if (accept(paramTypes, node.get(_param))) {
+	// Type returnType = function.getReturnType();
+	// if (returnType == null) {
+	// throw error(node, Message.UndefinedReturnType_, name);
 	// }
-	// return types;
+	// node.setHint(Hint.RecursiveApply, returnType);
+	// return true;
+	// }
+	// }
+	// return false;
+	// }
+	//
+	// private Type typeFuncApply(TypedTree node, Type func_t, Type[] params_t,
+	// TypedTree params) {
+	// if (typeSystem.isStaticFuncType(func_t)) {
+	// Class<?>[] p = typeSystem.getFuncParameterTypes(func_t);
+	// if (accept(p, params)) {
+	// node.rename(_name, _recv);
+	// return node.setInterface(Hint.MethodApply2,
+	// FunctorFactory.newMethod(Reflector.findInvokeMethod((Class<?>) func_t)));
+	// }
+	// throw error(node, "mismatched %s", Reflector.findInvokeMethod((Class<?>)
+	// func_t));
+	// } else {
+	// for (int i = 0; i < params.size(); i++) {
+	// enforceType(Object.class, params, i);
+	// }
+	// // node.makeFlattenedList(node.get(_name), params);
+	// return node.setInterface(Hint.StaticInvocation2,
+	// KonohaRuntime.Object_invokeFunction());
+	// }
 	// }
 
-	private boolean isRecursiveCall(TypedTree node, String name) {
-		if (inFunction() && name.equals(function.getName())) {
-			Type[] paramTypes = function.getParameterTypes();
-			if (accept(paramTypes, node.get(_param))) {
-				Type returnType = function.getReturnType();
-				if (returnType == null) {
-					throw error(node, Message.UndefinedReturnType_, name);
-				}
-				node.setHint(Hint.RecursiveApply, returnType);
-				return true;
-			}
-		}
-		return false;
-	}
-
-	private Type typeFuncApply(TypedTree node, Type func_t, Type[] params_t, TypedTree params) {
-		if (typeSystem.isStaticFuncType(func_t)) {
-			Class<?>[] p = typeSystem.getFuncParameterTypes(func_t);
-			if (accept(p, params)) {
-				node.rename(_name, _recv);
-				return node.setInterface(Hint.MethodApply2, FunctorFactory.newMethod(Reflector.findInvokeMethod((Class<?>) func_t)));
-			}
-			throw error(node, "mismatched %s", Reflector.findInvokeMethod((Class<?>) func_t));
-		} else {
-			for (int i = 0; i < params.size(); i++) {
-				params.set(i, enforceType(Object.class, params.get(i)));
-			}
-			// node.makeFlattenedList(node.get(_name), params);
-			return node.setInterface(Hint.StaticInvocation2, KonohaRuntime.Object_invokeFunction());
-		}
-	}
+	private static final Type[] emptyTypes = new Type[0];
 
 	private Type typeUnary(TypedTree node, String name) {
 		Type left = visit(node.get(_expr));
-		Type common = typeSystem.PrimitiveType(left);
+		Type common = Java.toPrimitiveType(left);
 		if (left != common) {
 			left = this.tryCastBeforeMatching(common, node, _expr);
 		}
-		TypeMatcher matcher = initTypeMatcher(null);
-		Functor inf = this.resolveFunction(matcher, name, node);
-		if (inf == null) {
-			return this.undefinedMethod(node, matcher, Message.Unary__, OperatorNames.name(name), name(left));
+		Type[] a = { left };
+		Functor f = this.typeSystem.getMethod(methodMatcher, left, name, a);
+		if (f != null) {
+			return found(node, f, methodMatcher);
 		}
-		return node.setInterface(Hint.StaticUnaryInterface, inf, matcher);
+		Functor[] fs = this.typeSystem.getMethods(left, name);
+		return unfound(node, fs, Message.Unary__, OperatorNames.name(name), name(left));
 	}
 
-	private Type typeBinary(TypedTree node, String name, BinaryTypeUnifier unifier) {
+	public Type typeBinary(TypedTree node, String name) {
 		Type left = visit(node.get(_left));
 		Type right = visit(node.get(_right));
-		Type common = unifier.unify(typeSystem.PrimitiveType(left), typeSystem.PrimitiveType(right));
-		if (left != common) {
-			left = this.tryCastBeforeMatching(common, node, _left);
+		Type[] a = { left, right };
+		Functor f = this.typeSystem.getMethod(methodMatcher, left, name, a);
+		if (f != null) {
+			return found(node, f, methodMatcher);
 		}
-		if (right != common) {
-			right = this.tryCastBeforeMatching(common, node, _right);
-		}
-		TypeMatcher matcher = initTypeMatcher(null);
-		Functor inf = this.resolveFunction(matcher, name, node);
-		if (inf == null) {
-			return this.undefinedMethod(node, matcher, Message.Binary___, name(left), OperatorNames.name(name), name(right));
-		}
-		return node.setInterface(Hint.StaticBinaryInterface, inf, matcher);
+		Functor[] fs = this.typeSystem.getMethods(left, name);
+		return unfound(node, fs, Message.Binary___, name(left), OperatorNames.name(name), name(right));
 	}
 
-	private Type tryCastBeforeMatching(Type req, TypedTree node, Symbol label) {
-		TypedTree child = node.get(label);
-		Method m = typeSystem.getCastMethod(child.getType(), req);
-		if (m != null) {
-			TypedTree newnode = node.newInstance(_Cast, 1, null);
-			newnode.set(0, _expr, child);
-			newnode.setInterface(Hint.StaticInvocation2, FunctorFactory.newMethod(m));
-			newnode.setType(req);
-			node.set(label, newnode);
-			return req;
+	public void unifyBinaryA(TypedTree node) {
+		Type left = visit(node.get(_left));
+		Type right = visit(node.get(_right));
+		Type common = Java.unifyAdd(Java.toPrimitiveType(left), Java.toPrimitiveType(right));
+		if (left != common) {
+			this.tryCastBeforeMatching(common, node, _left);
 		}
-		return node.getType();
+		if (right != common) {
+			this.tryCastBeforeMatching(common, node, _right);
+		}
+	}
+
+	public void unifyBinaryBit(TypedTree node) {
+		Type left = visit(node.get(_left));
+		Type right = visit(node.get(_right));
+		Type common = Java.unifyBit(Java.toPrimitiveType(left), Java.toPrimitiveType(right));
+		if (left != common) {
+			this.tryCastBeforeMatching(common, node, _left);
+		}
+		if (right != common) {
+			this.tryCastBeforeMatching(common, node, _right);
+		}
+	}
+
+	public class Add extends Undefined {
+		@Override
+		public Type acceptType(TypedTree node) {
+			unifyBinaryA(node);
+			return typeBinary(node, "add");
+		}
+	}
+
+	public class Sub extends Undefined {
+		@Override
+		public Type acceptType(TypedTree node) {
+			unifyBinaryA(node);
+			return typeBinary(node, "subtract");
+		}
+	}
+
+	public class Mul extends Undefined {
+		@Override
+		public Type acceptType(TypedTree node) {
+			unifyBinaryA(node);
+			return typeBinary(node, "multiply");
+		}
+	}
+
+	public class Div extends Undefined {
+		@Override
+		public Type acceptType(TypedTree node) {
+			unifyBinaryA(node);
+			return typeBinary(node, "divide");
+		}
+	}
+
+	public class Mod extends Undefined {
+		@Override
+		public Type acceptType(TypedTree node) {
+			unifyBinaryA(node);
+			return typeBinary(node, "mod");
+		}
+	}
+
+	public class Plus extends Undefined {
+		@Override
+		public Type acceptType(TypedTree node) {
+			return typeUnary(node, "opPlus");
+		}
+	}
+
+	public class Minus extends Undefined {
+		@Override
+		public Type acceptType(TypedTree node) {
+			return typeUnary(node, "negate");
+		}
+	}
+
+	public class Equals extends Undefined {
+		@Override
+		public Type acceptType(TypedTree node) {
+			return typeBinary(node, "eq");
+		}
+	}
+
+	public class NotEquals extends Undefined {
+		@Override
+		public Type acceptType(TypedTree node) {
+			return typeBinary(node, "ne");
+		}
+	}
+
+	public class LessThan extends Undefined {
+		@Override
+		public Type acceptType(TypedTree node) {
+			return typeBinary(node, "lt");
+		}
+	}
+
+	public class LessThanEquals extends Undefined {
+		@Override
+		public Type acceptType(TypedTree node) {
+			return typeBinary(node, "lte");
+		}
+	}
+
+	public class GreaterThan extends Undefined {
+		@Override
+		public Type acceptType(TypedTree node) {
+			return typeBinary(node, "gt");
+		}
+	}
+
+	public class GreaterThanEquals extends Undefined {
+		@Override
+		public Type acceptType(TypedTree node) {
+			return typeBinary(node, "gte");
+		}
+	}
+
+	public class LeftShift extends Undefined {
+		@Override
+		public Type acceptType(TypedTree node) {
+			return typeBinary(node, "shiftLeft");
+		}
+	}
+
+	public class RightShift extends Undefined {
+		@Override
+		public Type acceptType(TypedTree node) {
+			return typeBinary(node, "shiftRight");
+		}
+	}
+
+	// public class LogicalRightShift extends Undefined {
+	// @Override
+	// public Type acceptType(TypedTree node) {
+	// return typeBinary(node, "opLogicalRightShift");
+	// }
+	// }
+
+	public class BitwiseAnd extends Undefined {
+		@Override
+		public Type acceptType(TypedTree node) {
+			return typeBinary(node, "and");
+		}
+	}
+
+	public class BitwiseOr extends Undefined {
+		@Override
+		public Type acceptType(TypedTree node) {
+			return typeBinary(node, "or");
+		}
+	}
+
+	public class BitwiseXor extends Undefined {
+		@Override
+		public Type acceptType(TypedTree node) {
+			return typeBinary(node, "xor");
+		}
+	}
+
+	public class Compl extends Undefined {
+		@Override
+		public Type acceptType(TypedTree node) {
+			return typeUnary(node, "not");
+		}
 	}
 
 	public class And extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			enforceType(boolean.class, node, _left);
 			enforceType(boolean.class, node, _right);
 			return boolean.class;
@@ -857,7 +1008,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class Or extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			enforceType(boolean.class, node, _left);
 			enforceType(boolean.class, node, _right);
 			return boolean.class;
@@ -866,15 +1017,15 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class Not extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			enforceType(boolean.class, node, _expr);
-			return typeUnary(node, "opNot");
+			return typeUnary(node, "not");
 		}
 	}
 
 	public class TypeOf extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			try {
 				Type t = visit(node.get(_expr));
 				node.setConst(String.class, name(t));
@@ -888,11 +1039,11 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class Instanceof extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
-			Class<?> c = TypeSystem.toClass(visit(node.get(_left)));
+		public Type acceptType(TypedTree node) {
+			Class<?> c = Java.toClassType(visit(node.get(_left)));
 			Class<?> t = resolveClass(node.get(_right), null);
 			if (!t.isAssignableFrom(c)) {
-				typeSystem.reportWarning(node, "incompatible instanceof operation: %s", name(t));
+				reportWarning(node, "incompatible instanceof operation: %s", name(t));
 				node.setConst(boolean.class, false);
 			}
 			node.setValue(t);
@@ -900,170 +1051,30 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 		}
 	}
 
-	public class Add extends Undefined {
-		@Override
-		public Type accept(TypedTree node) {
-			return typeBinary(node, "opAdd", TypeSystem.UnifyAdditive);
-		}
-	}
-
-	public class Sub extends Undefined {
-		@Override
-		public Type accept(TypedTree node) {
-			return typeBinary(node, "opSub", TypeSystem.UnifyAdditive);
-		}
-	}
-
-	public class Mul extends Undefined {
-		@Override
-		public Type accept(TypedTree node) {
-			return typeBinary(node, "opMul", TypeSystem.UnifyAdditive);
-		}
-	}
-
-	public class Div extends Undefined {
-		@Override
-		public Type accept(TypedTree node) {
-			return typeBinary(node, "opDiv", TypeSystem.UnifyAdditive);
-		}
-	}
-
-	public class Mod extends Undefined {
-		@Override
-		public Type accept(TypedTree node) {
-			return typeBinary(node, "opMod", TypeSystem.UnifyAdditive);
-		}
-	}
-
-	public class Plus extends Undefined {
-		@Override
-		public Type accept(TypedTree node) {
-			return typeUnary(node, "opPlus");
-		}
-	}
-
-	public class Minus extends Undefined {
-		@Override
-		public Type accept(TypedTree node) {
-			return typeUnary(node, "opMinus");
-		}
-	}
-
-	public class Equals extends Undefined {
-		@Override
-		public Type accept(TypedTree node) {
-			return typeBinary(node, "opEquals", TypeSystem.UnifyEquator);
-		}
-	}
-
-	public class NotEquals extends Undefined {
-		@Override
-		public Type accept(TypedTree node) {
-			return typeBinary(node, "opNotEquals", TypeSystem.UnifyEquator);
-		}
-	}
-
-	public class LessThan extends Undefined {
-		@Override
-		public Type accept(TypedTree node) {
-			return typeBinary(node, "opLessThan", TypeSystem.UnifyComparator);
-		}
-	}
-
-	public class LessThanEquals extends Undefined {
-		@Override
-		public Type accept(TypedTree node) {
-			return typeBinary(node, "opLessThanEquals", TypeSystem.UnifyComparator);
-		}
-	}
-
-	public class GreaterThan extends Undefined {
-		@Override
-		public Type accept(TypedTree node) {
-			return typeBinary(node, "opGreaterThan", TypeSystem.UnifyComparator);
-		}
-	}
-
-	public class GreaterThanEquals extends Undefined {
-		@Override
-		public Type accept(TypedTree node) {
-			return typeBinary(node, "opGreaterThanEquals", TypeSystem.UnifyComparator);
-		}
-	}
-
-	public class LeftShift extends Undefined {
-		@Override
-		public Type accept(TypedTree node) {
-			return typeBinary(node, "opLeftShift", TypeSystem.UnifyBitwise);
-		}
-	}
-
-	public class RightShift extends Undefined {
-		@Override
-		public Type accept(TypedTree node) {
-			return typeBinary(node, "opRightShift", TypeSystem.UnifyBitwise);
-		}
-	}
-
-	public class LogicalRightShift extends Undefined {
-		@Override
-		public Type accept(TypedTree node) {
-			return typeBinary(node, "opLogicalRightShift", TypeSystem.UnifyBitwise);
-		}
-	}
-
-	public class BitwiseAnd extends Undefined {
-		@Override
-		public Type accept(TypedTree node) {
-			return typeBinary(node, "opBitwiseAnd", TypeSystem.UnifyBitwise);
-		}
-	}
-
-	public class BitwiseOr extends Undefined {
-		@Override
-		public Type accept(TypedTree node) {
-			return typeBinary(node, "opBitwiseOr", TypeSystem.UnifyBitwise);
-		}
-	}
-
-	public class BitwiseXor extends Undefined {
-		@Override
-		public Type accept(TypedTree node) {
-			return typeBinary(node, "opBitwiseXor", TypeSystem.UnifyBitwise);
-		}
-	}
-
-	public class Compl extends Undefined {
-		@Override
-		public Type accept(TypedTree node) {
-			return typeUnary(node, "opCompl");
-		}
-	}
-
 	public class Null extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			return Object.class;
 		}
 	}
 
 	public class True extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			return node.setConst(boolean.class, true);
 		}
 	}
 
 	public class False extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			return node.setConst(boolean.class, false);
 		}
 	}
 
 	public class _Integer extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			try {
 				String n = node.toText().replace("_", "");
 				if (n.startsWith("0b") || n.startsWith("0B")) {
@@ -1073,7 +1084,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 				}
 				return node.setConst(int.class, Integer.parseInt(n));
 			} catch (NumberFormatException e) {
-				typeSystem.reportWarning(node, e.getMessage());
+				reportWarning(node, e.getMessage());
 			}
 			return node.setConst(int.class, 0);
 		}
@@ -1081,12 +1092,12 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class _Long extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			try {
 				String n = node.toText();
 				return node.setConst(long.class, Long.parseLong(n));
 			} catch (NumberFormatException e) {
-				typeSystem.reportWarning(node, e.getMessage());
+				reportWarning(node, e.getMessage());
 			}
 			return node.setConst(long.class, 0L);
 		}
@@ -1097,12 +1108,12 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class _Double extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			try {
 				String n = node.toText();
 				return node.setConst(double.class, Double.parseDouble(n));
 			} catch (NumberFormatException e) {
-				typeSystem.reportWarning(node, e.getMessage());
+				reportWarning(node, e.getMessage());
 			}
 			return node.setConst(double.class, 0.0);
 		}
@@ -1110,14 +1121,14 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class Text extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			return node.setConst(String.class, node.toText());
 		}
 	}
 
 	public class _String extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			String t = node.toText();
 			return node.setConst(String.class, StringUtils.unquoteString(t));
 		}
@@ -1125,7 +1136,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class Character extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			String t = StringUtils.unquoteString(node.toText());
 			if (t.length() == 1) {
 				return node.setConst(char.class, t.charAt(0));
@@ -1136,56 +1147,63 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class Interpolation extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			for (int i = 0; i < node.size(); i++) {
 				TypedTree sub = node.get(i);
 				visit(sub);
 				if (sub.getType() != Object.class) {
-					node.set(i, enforceType(Object.class, sub));
+					enforceType(Object.class, node, i);
 				}
 			}
-			return node.setInterface(Hint.Unique, KonohaRuntime.String_join());
+			return functor(node, KonohaRuntime.String_join());
 		}
 	}
 
+	/* object oriented */
+
 	public class New extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			Type newType = resolveType(node.get(_type), null);
-			typeArguments(node.get(_param));
-			TypeMatcher matcher = initTypeMatcher(newType);
-			Functor inf = resolveConstructor(matcher, newType, node.get(_param));
-			if (inf != null) {
-				return node.setInterface(Hint.ConstructorInterface, inf, matcher);
+			Type[] a = typeArguments(node.get(_param));
+			Functor f = typeSystem.getConstructor(methodMatcher, newType, a);
+			if (f != null) {
+				return found(node, f, methodMatcher, node.get(_param));
 			}
-			return undefinedMethod(node, matcher, Message.Constructor_, name(newType));
+			Functor[] unmatched = typeSystem.getConstructors(newType);
+			return unfound(node, unmatched, Message.Constructor_, name(newType));
 		}
 	}
 
 	public class MethodApply extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			if (isStaticClassName(node)) {
 				return typeStaticMethodApply(node);
 			}
 			Type recvType = visit(node.get(_recv));
-			typeArguments(node.get(_param));
 			String name = node.getText(_name, "");
-			TypeMatcher matcher = initTypeMatcher(recvType);
-			Functor inf = resolveObjectMethod(matcher, recvType, name, node.get(_param));
-			if (inf != null) {
-				return node.setInterface(Hint.MethodApply2, inf, matcher);
+			Type[] a = typeArguments(recvType, node.get(_param));
+			Functor f = typeSystem.getMethod(methodMatcher, recvType, name, a);
+			if (f != null) {
+				if (isStaticClassMethod(f, a.length)) {
+					return found(node, f, methodMatcher, node.get(_param));
+				}
+				return found(node, f, methodMatcher, node.get(_recv), node.get(_param));
 			}
-			// if (typeSystem.isDynamic(recvType)) {
-			// m = Reflector.getInvokeDynamicMethod(node.get(_param).size());
-			// if (m != null) {
-			// node.makeFlattenedList(node.get(_recv),
-			// node.newStringConst(name), node.get(_param));
-			// return node.setMethod(Hint.StaticDynamicInvocation, m, null);
-			// }
-			// }
-			return undefinedMethod(node, matcher, Message.Method__, name(recvType), name);
+			Functor[] unmatched = typeSystem.getMethods(recvType, name);
+			return unfound(node, unmatched, Message.Method__, name(recvType), name);
 		}
+	}
+
+	private boolean isStaticClassMethod(Functor f, int paramSize) {
+		if (f.ref instanceof Method) {
+			Method m = (Method) f.ref;
+			if (Java.isStatic(m) && m.getParameterTypes().length != paramSize) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private boolean isStaticClassName(TypedTree node) {
@@ -1199,51 +1217,60 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 	private Type typeStaticMethodApply(TypedTree node) {
 		Class<?> staticClass = this.resolveClass(node.get(_recv), null);
 		String name = node.getText(_name, "");
-		this.typeArguments(node.get(_param));
-		TypeMatcher matcher = initTypeMatcher(null);
-		Functor inf = resolveStaticMethod(matcher, staticClass, name, node.get(_param));
-		if (inf == null) {
-			return this.undefinedMethod(node, matcher, Message.Method__, name, name(staticClass));
+		Type[] a = this.typeArguments(staticClass, node.get(_param));
+		Functor f = typeSystem.getMethod(methodMatcher, staticClass, name, a);
+		if (f != null) {
+			if (!isStaticClassMethod(f, a.length)) {
+				Functor[] unmatched = { f };
+				return unfound(node, unmatched, "not static method %s::%s", name(staticClass), name);
+			}
+			return found(node, f, methodMatcher, node.get(_param));
 		}
-		return node.setInterface(Hint.StaticApplyInterface, inf, matcher);
+		Functor[] unmatched = typeSystem.getMethods(staticClass, name);
+		return unfound(node, unmatched, Message.Method__, name(staticClass), name);
 	}
 
-	public Type typeIndexer(TypedTree node) {
-		Type recvType = visit(node.get(_recv));
-		typeArguments(node.get(_param));
-		TypeMatcher matcher = initTypeMatcher(recvType);
-		Functor inf = resolveObjectMethod(matcher, recvType, "get", node.get(_param));
-		if (inf != null) {
-			return node.setInterface(Hint.MethodApply2, inf, matcher);
-		}
-		if (typeSystem.isDynamic(recvType)) {
-			TODO("Dynamic Indexer");
-			// node.makeFlattenedList(node.get(_recv), node.get(_param));
-			// return node.setMethod(Hint.StaticInvocation,
-			// typeSystem.ObjectIndexer, null);
-		}
-		return this.undefinedMethod(node, matcher, Message.Indexer_, name(recvType));
-	}
-
-	private Type typeSetIndexer(TypedTree node, TypedTree recv, TypedTree param, TypedTree expr) {
-		param.makeFlattenedList(param, expr);
-		node.make(_recv, recv, _param, param);
-
-		Type recvType = visit(node.get(_recv));
-		typeArguments(node.get(_param));
-		TypeMatcher matcher = initTypeMatcher(recvType);
-		Functor inf = resolveObjectMethod(matcher, recvType, "get", node.get(_param));
-		if (inf != null) {
-			return node.setInterface(Hint.MethodApply2, inf, matcher);
-		}
-		if (typeSystem.isDynamic(recvType)) {
-			TODO("Dynamic Indexer");
-			// node.makeFlattenedList(node.get(_recv), node.get(_param));
-			// return node.setMethod(Hint.StaticInvocation,
-			// typeSystem.ObjectSetIndexer, null);
-		}
-		return this.undefinedMethod(node, matcher, Message.Indexer_, name(recvType));
-	}
+	// public Type typeIndexer(TypedTree node) {
+	// Type recvType = visit(node.get(_recv));
+	// typeArguments(node.get(_param));
+	// TypeMatcher2 methodMatcher = initTypeMatcher(recvType);
+	// Functor inf = resolveObjectMethod(methodMatcher, recvType, "get",
+	// node.get(_param));
+	// if (inf != null) {
+	// return node.setInterface(Hint.MethodApply2, inf, methodMatcher);
+	// }
+	// if (typeSystem.isDynamic(recvType)) {
+	// TODO("Dynamic Indexer");
+	// // node.makeFlattenedList(node.get(_recv), node.get(_param));
+	// // return node.setMethod(Hint.StaticInvocation,
+	// // typeSystem.ObjectIndexer, null);
+	// }
+	// return this.unfound(node, methodMatcher, Message.Indexer_,
+	// name(recvType));
+	// }
+	//
+	// private Type typeSetIndexer(TypedTree node, TypedTree recv, TypedTree
+	// param, TypedTree expr) {
+	// param.makeFlattenedList(param, expr);
+	// node.make(_recv, recv, _param, param);
+	//
+	// Type recvType = visit(node.get(_recv));
+	// typeArguments(node.get(_param));
+	// TypeMatcher2 methodMatcher = initTypeMatcher(recvType);
+	// Functor inf = resolveObjectMethod(methodMatcher, recvType, "get",
+	// node.get(_param));
+	// if (inf != null) {
+	// return node.setInterface(Hint.MethodApply2, inf, methodMatcher);
+	// }
+	// if (typeSystem.isDynamic(recvType)) {
+	// TODO("Dynamic Indexer");
+	// // node.makeFlattenedList(node.get(_recv), node.get(_param));
+	// // return node.setMethod(Hint.StaticInvocation,
+	// // typeSystem.ObjectSetIndexer, null);
+	// }
+	// return this.unfound(node, methodMatcher, Message.Indexer_,
+	// name(recvType));
+	// }
 
 	/* array */
 
@@ -1271,7 +1298,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 			for (int i = 0; i < node.size(); i += step) {
 				TypedTree sub = node.get(i + shift);
 				if (sub.getType() != Object.class) {
-					node.set(i, enforceType(Object.class, sub));
+					enforceType(Object.class, node, i + shift);
 				}
 			}
 		}
@@ -1280,7 +1307,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class Array extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			Type elementType = typeCollectionElement(node, 1);
 			Type arrayType = typeSystem.newArrayType(elementType);
 			return arrayType;
@@ -1289,7 +1316,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class Set extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			Type elementType = typeCollectionElement(node, 1);
 			Type arrayType = typeSystem.newArrayType(elementType);
 			node.setTag(_Array);
@@ -1299,7 +1326,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class Dict extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			Type elementType = typeCollectionElement(node, 1);
 			Type arrayType = typeSystem.newArrayType(elementType);
 			return arrayType;
@@ -1318,90 +1345,90 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class AssignAdd extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			return typeSelfAssignment(node, _Add);
 		}
 	}
 
 	public class AssignSub extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			return typeSelfAssignment(node, _Sub);
 		}
 	}
 
 	public class AssignMul extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			return typeSelfAssignment(node, _Mul);
 		}
 	}
 
 	public class AssignDiv extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			return typeSelfAssignment(node, _Div);
 		}
 	}
 
 	public class AssignMod extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			return typeSelfAssignment(node, _Mod);
 		}
 	}
 
 	public class AssignLeftShift extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			return typeSelfAssignment(node, _LeftShift);
 		}
 	}
 
 	public class AssignRightShift extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			return typeSelfAssignment(node, _RightShift);
 		}
 	}
 
 	public class AssignLogicalRightShift extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			return typeSelfAssignment(node, _LogicalRightShift);
 		}
 	}
 
 	public class AssignBitwiseAnd extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			return typeSelfAssignment(node, _BitwiseAnd);
 		}
 	}
 
 	public class AssignBitwiseXOr extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			return typeSelfAssignment(node, _BitwiseXor);
 		}
 	}
 
 	public class AssignBitwiseOr extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			return typeSelfAssignment(node, _BitwiseOr);
 		}
 	}
 
 	private TypedTree desugarInc(TypedTree expr, Symbol optag) {
 		TypedTree op = expr.newInstance(optag, 0, null);
-		op.make(_left, expr.dup(), _right, expr.newConst(_Integer, int.class, 1));
+		op.make(_left, expr.dup(), _right, expr.newConst(int.class, 1));
 		return op;
 	}
 
 	private TypedTree desugarAssign(TypedTree node, TypedTree expr, Symbol optag) {
 		TypedTree op = expr.newInstance(optag, 0, null);
-		op.make(_left, expr.dup(), _right, expr.newConst(_Integer, int.class, 1));
+		op.make(_left, expr.dup(), _right, expr.newConst(int.class, 1));
 		node.make(_left, expr, _right, desugarInc(expr, _Add));
 		node.setTag(_Assign);
 		return node;
@@ -1409,7 +1436,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class PreInc extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			TypedTree expr = node.get(_expr);
 			return visit(desugarAssign(node, expr, _Add));
 		}
@@ -1417,7 +1444,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class PreDec extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			TypedTree expr = node.get(_expr);
 			return visit(desugarAssign(node, expr, _Sub));
 		}
@@ -1425,7 +1452,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class Inc extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			TypedTree expr = node.get(_recv);
 			TypedTree assign = desugarAssign(node.newInstance(_Assign, 2, null), expr.dup(), _Add);
 			node.make(_expr, expr, _body, assign);
@@ -1437,7 +1464,7 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 
 	public class Dec extends Undefined {
 		@Override
-		public Type accept(TypedTree node) {
+		public Type acceptType(TypedTree node) {
 			TypedTree expr = node.get(_recv);
 			TypedTree assign = desugarAssign(node.newInstance(_Assign, 2, null), expr.dup(), _Sub);
 			node.make(_expr, expr, _body, assign);
@@ -1448,16 +1475,60 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 	}
 
 	// new interface
-	private TypeMatcher defaultMatcher = new TypeMatcher(this.typeSystem, this);
 
-	private TypeMatcher initTypeMatcher(Type recvType) {
-		defaultMatcher.init(recvType);
-		return defaultMatcher;
+	private TypeMatcher methodMatcher = new TypeMatcher();
+	private TypeMatcher castMatcher = new TypeMatcher();
+
+	private Type found(TypedTree node, Functor f, TypeMatcher matcher, TypedTree... sub) {
+		node.makeFlattenedList(sub);
+		return found(node, f, matcher);
 	}
 
-	private Type undefinedMethod(TypedTree node, TypeMatcher matcher, Message fmt, Object... args) {
-		String methods = matcher.getErrorMessage();
+	private Type found(TypedTree node, Functor f, TypeMatcher matcher) {
+		Type returnType = matcher.resolve(f.getReturnType(), Object.class);
+		for (int i = 0; i < f.size(); i++) {
+			enforceType(matcher, f.get(i), node, i);
+		}
+		node.setTag(_Functor);
+		node.setValue(f);
+		return returnType;
+	}
+
+	private Type functor(TypedTree node, Functor f) {
+		node.setTag(_Functor);
+		node.setFunctor(f);
+		node.setType(f.getReturnType());
+		return f.getReturnType();
+	}
+
+	private Type unfound(TypedTree node, Functor[] unmatched, Message fmt, Object... args) {
+		String methods = unfoundMessage(unmatched);
 		String msg = String.format(fmt.toString(), args);
+		if (methods == null) {
+			msg = String.format(Message.UndefinedFunctor_.toString(), msg);
+		} else {
+			msg = String.format(Message.MismatchedFunctor__.toString(), msg, methods);
+		}
+		throw error(node, msg);
+	}
+
+	private final String unfoundMessage(Functor[] unmatched) {
+		String mismatched = null;
+		if (unmatched != null && unmatched.length > 0) {
+			StringBuilder sb = new StringBuilder();
+			for (Functor f : unmatched) {
+				sb.append(" ");
+				sb.append(f.toString());
+			}
+			mismatched = sb.toString();
+		}
+		return mismatched;
+	}
+
+	@Deprecated
+	private Type unfound(TypedTree node, Functor[] unmatched, String fmt, Object... args) {
+		String methods = unfoundMessage(unmatched);
+		String msg = String.format(fmt, args);
 		if (methods == null) {
 			msg = String.format(Message.UndefinedFunctor_.toString(), msg);
 		} else {
@@ -1524,225 +1595,70 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 		if (t == null) {
 			return deftype;
 		}
-		return TypeSystem.toClass(t);
-	}
-
-	public final Functor resolveFunction(TypeMatcher matcher, String name, TypedTree params) {
-		UList<Object> symbolList = typeSystem.getSymbolList();
-		for (int i = symbolList.size() - 1; i >= 0; i--) {
-			Object symbol = symbolList.ArrayValues[i];
-			if (symbol instanceof Method) {
-				Method m = (Method) symbol;
-				if (name.equals(m.getName())) {
-					Type[] p = m.getGenericParameterTypes();
-					if (Functor.match(matcher, p, params)) {
-						return FunctorFactory.newMethod(m);
-					}
-				}
-				continue;
-			}
-			Functor inf = (Functor) symbol;
-			// TODO
-		}
-		for (int i = symbolList.size() - 1; i >= 0; i--) {
-			Object symbol = symbolList.ArrayValues[i];
-			if (symbol instanceof Method) {
-				Method m = (Method) symbol;
-				if (name.equals(m.getName())) {
-					Type[] p = m.getGenericParameterTypes();
-					if (p.length == params.size()) {
-						matcher.addCandidate(FunctorFactory.newMethod(m));
-					}
-				}
-				continue;
-			}
-		}
-		return matchCandidate(matcher, params);
-	}
-
-	private final Functor resolveConstructor(TypeMatcher matcher, Type newType, TypedTree params) {
-		Class<?> newClass = TypeSystem.toClass(newType);
-		Constructor<?>[] cList = newClass.getConstructors();
-		for (Constructor<?> c : cList) {
-			Type[] p = c.getGenericParameterTypes();
-			if (Functor.match(matcher, p, params)) {
-				return FunctorFactory.newConstructor(newType, c);
-			}
-		}
-		for (Constructor<?> c : cList) {
-			Type[] p = c.getGenericParameterTypes();
-			if (p.length == params.size()) {
-				matcher.addCandidate(FunctorFactory.newConstructor(newType, c));
-			}
-		}
-		return matchCandidate(matcher, params);
-	}
-
-	private final Functor resolveStaticMethod(TypeMatcher matcher, Type recvType, String name, TypedTree params) {
-		return this.resolveMethod(matcher, recvType, true, name, params);
-	}
-
-	private final Functor resolveObjectMethod(TypeMatcher matcher, Type recvType, String name, TypedTree params) {
-		return this.resolveMethod(matcher, recvType, false, name, params);
-	}
-
-	private final Functor resolveMethod(TypeMatcher matcher, Type recvType, boolean isStaticOnly, String name, TypedTree params) {
-		Class<?> recvClass = TypeSystem.toClass(recvType);
-		while (recvClass != null) {
-			Functor inf = this.matchClassMethod(matcher, isStaticOnly, recvClass, name, params);
-			if (inf != null) {
-				return inf;
-			}
-			if (recvClass == Object.class) {
-				break;
-			}
-			recvClass = recvClass.getSuperclass();
-		}
-		return matchCandidate(matcher, params);
-	}
-
-	private Functor matchClassMethod(TypeMatcher matcher, boolean isStaticOnly, Class<?> recvClass, String name, TypedTree params) {
-		Method[] mList = recvClass.getDeclaredMethods();
-		for (Method m : mList) {
-			if (matchMethod(m, isStaticOnly, name)) {
-				Type[] p = m.getGenericParameterTypes();
-				if (Functor.match(matcher, p, params)) {
-					return FunctorFactory.newMethod(m);
-				}
-			}
-		}
-		for (Method m : mList) {
-			if (matchMethod(m, isStaticOnly, name)) {
-				Type[] p = m.getGenericParameterTypes();
-				if (p.length == params.size()) {
-					matcher.addCandidate(FunctorFactory.newMethod(m));
-				}
-			}
-		}
-		return null;
-	}
-
-	private boolean matchMethod(Method m, boolean isStaticOnly, String name) {
-		if (!Modifier.isPublic(m.getModifiers())) {
-			return false;
-		}
-		if (isStaticOnly && !Modifier.isStatic(m.getModifiers())) {
-			return false;
-		}
-		return name.equals(m.getName());
+		return Java.toClassType(t);
 	}
 
 	// matching library
 
-	private void enforceType(Type req, TypedTree node, Symbol label) {
-		TypedTree unode = node.get(label, null);
-		if (unode == null) {
-			throw this.error(node, Message.SyntaxError, label);
-		}
+	private void enforceType(TypeMatcher matcher, Type req, TypedTree node, int index) {
+		TypedTree unode = node.get(index);
 		visit(unode);
-		node.set(label, this.enforceType(req, unode));
+		node.set(index, this.enforceType(matcher, req, unode));
 	}
 
-	private final TypedTree enforceType(Type reqt, TypedTree node) {
-		TypedTree n = accept(reqt, node);
-		if (n == null) {
-			throw error(node, Message.TypeError__, name(reqt), name(node.getType()));
-		}
-		return n;
+	private void enforceType(TypeMatcher matcher, Type req, TypedTree node, Symbol label) {
+		TypedTree unode = node.get(label);
+		visit(unode);
+		node.set(label, this.enforceType(matcher, req, unode));
+	}
+
+	private void enforceType(Type req, TypedTree node, int index) {
+		enforceType(null, req, node, index);
+	}
+
+	private void enforceType(Type req, TypedTree node, Symbol label) {
+		enforceType(null, req, node, label);
 	}
 
 	private final TypedTree enforceType(TypeMatcher matcher, Type reqt, TypedTree node) {
-		TypedTree n = accept(matcher, reqt, node);
-		if (n == null) {
+		if (FunctorLookup.accept(matcher, reqt, node.getType())) {
+			return node;
+		}
+		Type resolved = matcher != null ? matcher.resolve(reqt, null) : reqt;
+		TypedTree converted = tryCoersion(resolved, node);
+		if (converted == null) {
 			throw error(node, Message.TypeError__, name(reqt), name(node.getType()));
 		}
-		return n;
+		return converted;
 	}
 
-	private final Functor matchCandidate(TypeMatcher matcher, TypedTree params) {
-		TypedTree[] buf = null;
-		for (Functor inf : matcher.candiateList) {
-			if (buf == null) {
-				buf = new TypedTree[params.size()];
-			}
-			if (accept(matcher, inf.getParameterTypes(), params, buf)) {
-				return inf;
-			}
+	private Type tryCastBeforeMatching(Type req, TypedTree node, Symbol label) {
+		TypedTree child = node.get(label);
+		Functor f = typeSystem.getCast(child.getType(), req);
+		if (f != null) {
+			TypedTree newnode = node.newInstance(_Functor, 1, f);
+			newnode.set(0, _expr, child);
+			newnode.setFunctor(f);
+			newnode.setType(req);
+			node.set(label, newnode);
+			return req;
 		}
-		buf = null;
-		return null;
-	}
-
-	private final boolean accept(TypeMatcher matcher, Type[] p, TypedTree params, TypedTree[] buf) {
-		if (p.length != params.size()) {
-			return false;
-		}
-		if (p.length > 0) {
-			for (int i = 0; i < p.length; i++) {
-				TypedTree sub = params.get(i);
-				buf[i] = accept(matcher, p[i], sub);
-				if (buf[i] == null) {
-					return false;
-				}
-			}
-			for (int i = 0; i < p.length; i++) {
-				params.set(i, buf[i]);
-			}
-		}
-		return true;
-	}
-
-	private final boolean accept(Type[] p, TypedTree params) {
-		if (p.length != params.size()) {
-			return false;
-		}
-		if (p.length > 0) {
-			TypedTree[] buf = new TypedTree[p.length];
-			for (int i = 0; i < p.length; i++) {
-				TypedTree sub = params.get(i);
-				buf[i] = accept(p[i], sub);
-				if (buf[i] == null) {
-					return false;
-				}
-			}
-			for (int i = 0; i < p.length; i++) {
-				params.set(i, buf[i]);
-			}
-		}
-		return true;
-	}
-
-	private final TypedTree accept(TypeMatcher matcher, Type reqt, TypedTree node) {
-		if (Functor.match(matcher, reqt, node.getType())) {
-			return node;
-		}
-		Type resolved = matcher.resolve(reqt, null);
-		if (resolved != null) {
-			return tryCoersion(resolved, node);
-		}
-		return null;
-	}
-
-	private final TypedTree accept(Type reqt, TypedTree node) {
-		if (Functor.match(null, reqt, node.getType())) {
-			return node;
-		}
-		return tryCoersion(reqt, node);
+		return node.getType();
 	}
 
 	private final TypedTree tryCoersion(Type reqt, TypedTree node) {
 		Type expt = node.getType();
-		Method m = typeSystem.getCastMethod(expt, reqt);
-		if (m != null) {
-			TypedTree newnode = node.newInstance(_Cast, 1, null);
+		Functor f = typeSystem.getCast(expt, reqt);
+		if (f != null) {
+			TypedTree newnode = node.newInstance(_Functor, 1, f);
 			newnode.set(0, _expr, node);
-			newnode.setInterface(Hint.StaticInvocation2, FunctorFactory.newMethod(m), null);
+			functor(newnode, f);
 			return newnode;
 		}
-		if (expt == Object.class) { // auto upcast
+		if (expt == Object.class) { // auto downcast
 			TypedTree newnode = node.newInstance(_Cast, 1, null);
 			newnode.set(0, _expr, node);
-			newnode.setHint(Hint.DownCast, reqt);
+			newnode.setType(reqt);
 			return newnode;
 		}
 		return null;
@@ -1756,18 +1672,22 @@ public class TypeChecker extends TreeVisitor2<konoha.script.TypeChecker.Undefine
 		return new TypeCheckerException(node, fmt, args);
 	}
 
-	// debug message
+	public boolean verboseTypeInference = true;
 
-	void TRACE(String fmt, Object... args) {
-		typeSystem.TRACE(fmt, args);
+	private void reportInferredType(TypedTree node, Message fmt, Object... args) {
+		if (verboseTypeInference) {
+			this.reportWarning(node, fmt, args);
+		}
 	}
 
-	void TODO(String fmt, Object... args) {
-		typeSystem.TODO(fmt, args);
+	public void reportWarning(TypedTree node, String fmt, Object... args) {
+		String msg = node.formatSourceMessage("warning", String.format(fmt, args));
+		context.log(msg);
 	}
 
-	void DEBUG(String fmt, Object... args) {
-		typeSystem.DEBUG(fmt, args);
+	public void reportWarning(TypedTree node, Message fmt, Object... args) {
+		String msg = node.formatSourceMessage("warning", String.format(fmt.toString(), args));
+		context.log(msg);
 	}
 
 }

@@ -1,11 +1,13 @@
 package konoha.asm;
 
 import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
 
 import konoha.main.ConsoleUtils;
 import konoha.script.CommonSymbols;
-import konoha.script.Hint;
+import konoha.script.Debug;
+import konoha.script.Functor;
+import konoha.script.Java;
+import konoha.script.Syntax;
 import konoha.script.TypeSystem;
 import konoha.script.TypedTree;
 import nez.ast.TreeVisitor2;
@@ -37,53 +39,125 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 		}
 	}
 
-	private void visit(TypedTree node) {
-		switch (node.hint) {
-		case Constant:
-			visitConstantHint(node);
-			return;
-		case StaticUnaryInterface:
-		case StaticBinaryInterface:
-		case StaticInvocation2:
-			visitStaticInvocationHint(node);
-			return;
-		case UpCast:
-			visitUpCastHint(node);
-			return;
-		case DownCast:
-			visitDownCastHint(node);
-			return;
-		case StaticApplyInterface:
-			visitApplyHint(node);
-			return;
-		case RecursiveApply:
-			visitRecursiveApplyHint(node);
-			return;
-		case GetField:
-			this.visitGetFieldHint(node);
-			return;
-		case SetField:
-			this.visitSetFieldHint(node);
-			return;
-		case MethodApply2:
-			this.visitMehodApplyHint(node);
-			return;
-		case ConstructorInterface:
-			this.visitConstructorHint(node);
-			return;
-		case Unique:
-			break;
-		default:
-			break;
+	public class _Functor extends Undefined {
+		@Override
+		public void accept(TypedTree node) {
+			prepare(node.getFunctor());
+			for (TypedTree sub : node) {
+				visit(sub);
+			}
+			push(node.getFunctor());
 		}
-		TRACE("compiling (no hint): " + node.getTag());
+	}
+
+	void prepare(Functor f) {
+		if (f.ref instanceof java.lang.reflect.Constructor) {
+			java.lang.reflect.Constructor<?> c = (java.lang.reflect.Constructor<?>) f.ref;
+			this.mBuilder.newInstance(Type.getType(c.getDeclaringClass()));
+			this.mBuilder.dup();
+			return;
+		}
+		if (f.ref instanceof Prototype) {
+			((Prototype) f.ref).prepare(this.mBuilder);
+		}
+	}
+
+	void push(Functor f) {
+		if (f.ref instanceof java.lang.reflect.Method) {
+			java.lang.reflect.Method m = (java.lang.reflect.Method) f.ref;
+			if (Java.isStatic(m)) {
+				this.mBuilder.invokeStatic(Type.getType(m.getDeclaringClass()), Method.getMethod(m));
+			} else if (Java.isInterface(m)) {
+				this.mBuilder.invokeInterface(Type.getType(m.getDeclaringClass()), Method.getMethod(m));
+			} else {
+				this.mBuilder.invokeVirtual(Type.getType(m.getDeclaringClass()), Method.getMethod(m));
+			}
+			return;
+		}
+		if (f.ref instanceof java.lang.reflect.Field) {
+			Field fld = (Field) f.ref;
+			Type owner = Type.getType(fld.getDeclaringClass());
+			String name = fld.getName();
+			Type fieldType = Type.getType(fld.getType());
+			if (f.syntax == Syntax.Getter) {
+				if (Java.isStatic(fld)) {
+					this.mBuilder.getStatic(owner, name, fieldType);
+				} else {
+					this.mBuilder.getField(owner, name, fieldType);
+				}
+			} else {
+				if (Java.isStatic(fld)) {
+					this.mBuilder.putStatic(owner, name, fieldType);
+				} else {
+					this.mBuilder.putField(owner, name, fieldType);
+				}
+			}
+			return;
+		}
+		if (f.ref instanceof java.lang.reflect.Constructor) {
+			java.lang.reflect.Constructor<?> c = (java.lang.reflect.Constructor<?>) f.ref;
+			this.mBuilder.invokeConstructor(Type.getType(c.getDeclaringClass()), Method.getMethod(c));
+			return;
+		}
+		if (f.ref instanceof Prototype) {
+			((Prototype) f.ref).push(this.mBuilder);
+		}
+	}
+
+	public class Const extends Undefined {
+		@Override
+		public void accept(TypedTree node) {
+			visitConstantHint(node);
+		}
+	}
+
+	private void visit(TypedTree node) {
+		// switch (node.hint) {
+		// case Constant:
+		// visitConstantHint(node);
+		// return;
+		// case StaticUnaryInterface:
+		// case StaticBinaryInterface:
+		// case StaticInvocation2:
+		// visitStaticInvocationHint(node);
+		// return;
+		// case UpCast:
+		// visitUpCastHint(node);
+		// return;
+		// case DownCast:
+		// visitDownCastHint(node);
+		// return;
+		// case StaticApplyInterface:
+		// visitApplyHint(node);
+		// return;
+		// case RecursiveApply:
+		// visitRecursiveApplyHint(node);
+		// return;
+		// case GetField:
+		// this.visitGetFieldHint(node);
+		// return;
+		// case SetField:
+		// this.visitSetFieldHint(node);
+		// return;
+		// case MethodApply2:
+		// this.visitMehodApplyHint(node);
+		// return;
+		// case ConstructorInterface:
+		// this.visitConstructorHint(node);
+		// return;
+		// case Unique:
+		// break;
+		// default:
+		// break;
+		// }
+		// TRACE("compiling (no hint): " + node.getTag());
 		this.find(node).accept(node);
 	}
 
-	private Class<?> typeof(TypedTree node) {
-		// node.getTypedClass();
-		return typeSystem.typeof(node);
-	}
+	// private Class<?> typeof(TypedTree node) {
+	// // node.getTypedClass();
+	// return typeSystem.typeof(node);
+	// }
 
 	/* typechecker hints */
 
@@ -116,7 +190,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 	}
 
 	private void visitConstantHint(TypedTree node) {
-		assert (node.hint() == Hint.Constant);
+		// assert (node.hint() == Hint.Constant);
 		Object v = node.getValue();
 		if (v instanceof String) {
 			this.mBuilder.push((String) v);
@@ -138,101 +212,102 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 		}
 	}
 
-	private void visitStaticInvocationHint(TypedTree node) {
-		for (TypedTree sub : node) {
-			visit(sub);
-		}
-		AsmFunctor inf = getInterface(node);
-		inf.pushInstruction(this.mBuilder);
-		this.unbox(node.getType(), inf.getReturnClass());
-	}
-
-	private void visitUpCastHint(TypedTree node) {
-		visit(node.get(_expr));
-	}
+	// private void visitStaticInvocationHint(TypedTree node) {
+	// for (TypedTree sub : node) {
+	// visit(sub);
+	// }
+	// AsmFunctor inf = getInterface(node);
+	// inf.pushInstruction(this.mBuilder);
+	// this.unbox(node.getType(), inf.getReturnClass());
+	// }
+	//
+	// private void visitUpCastHint(TypedTree node) {
+	// visit(node.get(_expr));
+	// }
 
 	private void visitDownCastHint(TypedTree node) {
 		visit(node.get(_expr));
 		this.mBuilder.checkCast(Type.getType(node.getClassType()));
 	}
 
-	private void visitApplyHint(TypedTree node) {
-		for (TypedTree sub : node.get(_param)) {
-			visit(sub);
-		}
-		AsmFunctor inf = getInterface(node);
-		inf.pushInstruction(this.mBuilder);
-		this.unbox(node.getType(), inf.getReturnClass());
-	}
-
-	private void visitRecursiveApplyHint(TypedTree node) {
-		for (TypedTree sub : node.get(_param)) {
-			visit(sub);
-		}
-		this.mBuilder.invokeStatic(this.cBuilder.getTypeDesc(), this.mBuilder.getMethod());
-	}
-
-	private void visitGetFieldHint(TypedTree node) {
-		Field f = node.getField();
-		if (Modifier.isStatic(f.getModifiers())) {
-			Type owner = Type.getType(f.getDeclaringClass());
-			String name = f.getName();
-			Type fieldType = Type.getType(f.getType());
-			this.mBuilder.getStatic(owner, name, fieldType);
-		} else {
-			visit(node.get(_recv));
-			Type owner = Type.getType(f.getDeclaringClass());
-			String name = f.getName();
-			Type fieldType = Type.getType(f.getType());
-			this.mBuilder.getField(owner, name, fieldType);
-		}
-	}
-
-	private AsmFunctor getInterface(TypedTree node) {
-		return (AsmFunctor) node.getValue();
-	}
-
-	private void visitConstructorHint(TypedTree node) {
-		AsmFunctor inf = getInterface(node);
-		this.mBuilder.newInstance(inf.getOwner());
-		this.mBuilder.dup();
-		for (TypedTree sub : node.get(_param)) {
-			visit(sub);
-		}
-		inf.pushInstruction(this.mBuilder);
-	}
-
-	private void visitMehodApplyHint(TypedTree node) {
-		visit(node.get(_recv));
-		for (TypedTree sub : node.get(_param)) {
-			visit(sub);
-		}
-		AsmFunctor inf = this.getInterface(node);
-		inf.pushInstruction(this.mBuilder);
-		this.unbox(node.getType(), inf.getReturnClass());
-	}
+	// private void visitApplyHint(TypedTree node) {
+	// for (TypedTree sub : node.get(_param)) {
+	// visit(sub);
+	// }
+	// AsmFunctor inf = getInterface(node);
+	// inf.pushInstruction(this.mBuilder);
+	// this.unbox(node.getType(), inf.getReturnClass());
+	// }
+	//
+	// private void visitRecursiveApplyHint(TypedTree node) {
+	// for (TypedTree sub : node.get(_param)) {
+	// visit(sub);
+	// }
+	// this.mBuilder.invokeStatic(this.cBuilder.getTypeDesc(),
+	// this.mBuilder.getMethod());
+	// }
+	//
+	// private void visitGetFieldHint(TypedTree node) {
+	// Field f = node.getField();
+	// if (Modifier.isStatic(f.getModifiers())) {
+	// Type owner = Type.getType(f.getDeclaringClass());
+	// String name = f.getName();
+	// Type fieldType = Type.getType(f.getType());
+	// this.mBuilder.getStatic(owner, name, fieldType);
+	// } else {
+	// visit(node.get(_recv));
+	// Type owner = Type.getType(f.getDeclaringClass());
+	// String name = f.getName();
+	// Type fieldType = Type.getType(f.getType());
+	// this.mBuilder.getField(owner, name, fieldType);
+	// }
+	// }
+	//
+	// private AsmFunctor getInterface(TypedTree node) {
+	// return (AsmFunctor) node.getValue();
+	// }
+	//
+	// private void visitConstructorHint(TypedTree node) {
+	// AsmFunctor inf = getInterface(node);
+	// this.mBuilder.newInstance(inf.getOwner());
+	// this.mBuilder.dup();
+	// for (TypedTree sub : node.get(_param)) {
+	// visit(sub);
+	// }
+	// inf.pushInstruction(this.mBuilder);
+	// }
+	//
+	// private void visitMehodApplyHint(TypedTree node) {
+	// visit(node.get(_recv));
+	// for (TypedTree sub : node.get(_param)) {
+	// visit(sub);
+	// }
+	// AsmFunctor inf = this.getInterface(node);
+	// inf.pushInstruction(this.mBuilder);
+	// this.unbox(node.getType(), inf.getReturnClass());
+	// }
 
 	private void unbox(java.lang.reflect.Type type, Class<?> clazz) {
 		// TODO
 	}
 
-	private void visitSetFieldHint(TypedTree node) {
-		Field f = node.getField();
-		if (Modifier.isStatic(f.getModifiers())) {
-			visit(node.get(_expr));
-			Type owner = Type.getType(f.getDeclaringClass());
-			String name = f.getName();
-			Type fieldType = Type.getType(f.getType());
-			this.mBuilder.putStatic(owner, name, fieldType);
-		} else {
-			visit(node.get(_recv));
-			visit(node.get(_expr));
-			Type owner = Type.getType(f.getDeclaringClass());
-			String name = f.getName();
-			Type fieldType = Type.getType(f.getType());
-			this.mBuilder.putField(owner, name, fieldType);
-		}
-	}
+	// private void visitSetFieldHint(TypedTree node) {
+	// Field f = node.getField();
+	// if (Modifier.isStatic(f.getModifiers())) {
+	// visit(node.get(_expr));
+	// Type owner = Type.getType(f.getDeclaringClass());
+	// String name = f.getName();
+	// Type fieldType = Type.getType(f.getType());
+	// this.mBuilder.putStatic(owner, name, fieldType);
+	// } else {
+	// visit(node.get(_recv));
+	// visit(node.get(_expr));
+	// Type owner = Type.getType(f.getDeclaringClass());
+	// String name = f.getName();
+	// Type fieldType = Type.getType(f.getType());
+	// this.mBuilder.putField(owner, name, fieldType);
+	// }
+	// }
 
 	void pushArray(Class<?> elementType, TypedTree node) {
 		this.mBuilder.push(node.size());
@@ -258,15 +333,15 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 	/* class */
 
 	public void openClass(String name) {
-		this.cBuilder = new ClassBuilder(this.classPath + name, null, null, null);
+		this.cBuilder = new ClassBuilder(name, null, null, null);
 	}
 
 	public void openClass(String name, Class<?> superClass, Class<?>... interfaces) {
-		this.cBuilder = new ClassBuilder(this.classPath + name, null, superClass, interfaces);
+		this.cBuilder = new ClassBuilder(name, null, superClass, interfaces);
 	}
 
 	public void openClass(int acc, String name, Class<?> superClass, Class<?>... interfaces) {
-		this.cBuilder = new ClassBuilder(acc, this.classPath + name, null, superClass, interfaces);
+		this.cBuilder = new ClassBuilder(acc, name, null, superClass, interfaces);
 	}
 
 	public Class<?> closeClass() {
@@ -332,8 +407,15 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 	/* static function */
 	int unique = 0;
 
+	public String nameFunctionClass(TypedTree node, String name) {
+		String path = node.getSource().getResourceName();
+		String cname = "F_" + name + "_" + unique;
+		unique++;
+		return cname;
+	}
+
 	public Class<?> compileStaticFuncDecl(String className, TypedTree node) {
-		this.openClass("F_" + className + "_" + unique);
+		this.openClass(className);
 		this.cBuilder.visitSource(node.getSource().getResourceName(), null);
 		unique++;
 		visit(node);
@@ -346,15 +428,15 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 			TypedTree nameNode = node.get(_name);
 			TypedTree args = node.get(_param);
 			String name = nameNode.toText();
-			Class<?> funcType = typeof(nameNode);
+			Class<?> funcType = nameNode.getClassType();
 			Class<?>[] paramTypes = new Class<?>[args.size()];
 			for (int i = 0; i < paramTypes.length; i++) {
-				paramTypes[i] = typeof(args.get(i));
+				paramTypes[i] = args.get(i).getClassType();
 			}
 			mBuilder = cBuilder.newMethodBuilder(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, funcType, name, paramTypes);
 			mBuilder.enterScope();
 			for (TypedTree arg : args) {
-				mBuilder.defineArgument(arg.getText(_name, null), typeof(arg));
+				mBuilder.defineArgument(arg.getText(_name, null), arg.getClassType());
 			}
 			visit(node.get(_body));
 			mBuilder.exitScope();
@@ -390,12 +472,12 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 			TypedTree args = node.get(_param);
 			Class<?>[] paramClasses = new Class<?>[args.size()];
 			for (int i = 0; i < args.size(); i++) {
-				paramClasses[i] = typeof(args.get(i));
+				paramClasses[i] = args.get(i).getClassType();
 			}
 			mBuilder = cBuilder.newConstructorBuilder(Opcodes.ACC_PUBLIC, paramClasses);
 			mBuilder.enterScope();
 			for (TypedTree arg : args) {
-				mBuilder.defineArgument(arg.getText(_name, null), typeof(arg));
+				mBuilder.defineArgument(arg.getText(_name, null), arg.getClassType());
 			}
 			visit(node.get(_body));
 			mBuilder.exitScope();
@@ -801,6 +883,14 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 		}
 	}
 
+	public class Cast extends Undefined {
+		@Override
+		public void accept(TypedTree node) {
+			visit(node.get(_expr));
+			mBuilder.checkCast(Type.getType(node.getClassType()));
+		}
+	}
+
 	public class And extends Undefined {
 		@Override
 		public void accept(TypedTree node) {
@@ -911,14 +1001,14 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 		}
 	}
 
-	public class Interpolation extends Undefined {
-		@Override
-		public void accept(TypedTree node) {
-			pushArray(Object.class, node);
-			AsmFunctor inf = getInterface(node);
-			inf.pushInstruction(mBuilder);
-		}
-	}
+	// public class Interpolation extends Undefined {
+	// @Override
+	// public void accept(TypedTree node) {
+	// pushArray(Object.class, node);
+	// AsmFunctor inf = getInterface(node);
+	// inf.pushInstruction(mBuilder);
+	// }
+	// }
 
 	public class Empty extends Undefined {
 		@Override
@@ -1337,15 +1427,15 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 	// }
 
 	void TRACE(String fmt, Object... args) {
-		typeSystem.TRACE(fmt, args);
+		Debug.TRACE(fmt, args);
 	}
 
 	void TODO(String fmt, Object... args) {
-		typeSystem.TODO(fmt, args);
+		Debug.TODO(fmt, args);
 	}
 
 	void DEBUG(String fmt, Object... args) {
-		typeSystem.DEBUG(fmt, args);
+		Debug.DEBUG(fmt, args);
 	}
 
 }

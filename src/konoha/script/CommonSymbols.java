@@ -4,16 +4,16 @@ import nez.ast.Symbol;
 
 public interface CommonSymbols {
 
-	public final static Symbol _anno = Symbol.tag("anno");
+	// public final static Symbol _anno = Symbol.tag("anno");
 	public final static Symbol _name = Symbol.tag("name");
-	public final static Symbol _super = Symbol.tag("super");
-	public final static Symbol _impl = Symbol.tag("impl");
+	// public final static Symbol _super = Symbol.tag("super");
+	// public final static Symbol _impl = Symbol.tag("impl");
 	public final static Symbol _body = Symbol.tag("body");
 	public final static Symbol _type = Symbol.tag("type");
 	public final static Symbol _expr = Symbol.tag("expr");
 	public final static Symbol _list = Symbol.tag("list");
 	public final static Symbol _param = Symbol.tag("param");
-	public final static Symbol _throws = Symbol.tag("throws");
+	// public final static Symbol _throws = Symbol.tag("throws");
 	public final static Symbol _base = Symbol.tag("base");
 	public final static Symbol _extends = Symbol.tag("extends");
 	public final static Symbol _cond = Symbol.tag("cond");
@@ -37,6 +37,9 @@ public interface CommonSymbols {
 	public final static Symbol _ArrayType = Symbol.tag("ArrayType");
 	public final static Symbol _GenericType = Symbol.tag("GenericType");
 	public final static Symbol _TypeOf = Symbol.tag("TypeOf");
+
+	public final static Symbol _Functor = Symbol.tag("Functor");
+	public final static Symbol _Const = Symbol.tag("Const");
 
 	public final static Symbol _Cast = Symbol.tag("Cast");
 	public final static Symbol _UpCast = Symbol.tag("UpCast");

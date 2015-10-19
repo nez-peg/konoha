@@ -27,7 +27,7 @@ public class ScriptContext {
 	}
 
 	public void setVerboseMode(boolean b) {
-		this.typeSystem.setVerboseMode(b);
+		// this.typeSystem.setVerboseMode(b);
 	}
 
 	public final void load(String path) throws IOException {
@@ -56,13 +56,13 @@ public class ScriptContext {
 		Object result = Interpreter.empty;
 		boolean foundError = false;
 		for (TypedTree sub : node) {
-			if (enableASTDump || this.typeSystem.verboseMode) {
+			if (enableASTDump) {
 				ConsoleUtils.println("[Parsed]");
 				ConsoleUtils.println("    ", sub);
 			}
 			try {
 				typechecker.visit(sub);
-				if (enableASTDump || this.typeSystem.verboseMode) {
+				if (enableASTDump) {
 					ConsoleUtils.println("[Typed]");
 					ConsoleUtils.println("    ", sub);
 				}
@@ -81,13 +81,13 @@ public class ScriptContext {
 	}
 
 	Object evalTopLevel(TypedTree sub) {
-		if (enableASTDump || this.typeSystem.verboseMode) {
+		if (enableASTDump) {
 			ConsoleUtils.println("[Parsed]");
 			ConsoleUtils.println("    ", sub);
 		}
 		try {
 			typechecker.visit(sub);
-			if (enableASTDump || this.typeSystem.verboseMode) {
+			if (enableASTDump) {
 				ConsoleUtils.println("[Typed]");
 				ConsoleUtils.println("    ", sub);
 			}

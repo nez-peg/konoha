@@ -1,6 +1,5 @@
 package konoha.script;
 
-import java.lang.reflect.Field;
 import java.lang.reflect.Type;
 
 import nez.ast.Source;
@@ -9,7 +8,6 @@ import nez.ast.Tree;
 import nez.util.UList;
 
 public class TypedTree extends Tree<TypedTree> {
-	public Hint hint = Hint.Unique;
 	Type type;
 
 	// Method resolvedMethod;
@@ -37,8 +35,8 @@ public class TypedTree extends Tree<TypedTree> {
 		return new TypedTree(tag, this.getSource(), this.getSourcePosition(), 0, size, value);
 	}
 
-	public TypedTree newConst(Symbol tag, Type type, Object value) {
-		TypedTree t = new TypedTree(tag, this.getSource(), this.getSourcePosition(), 0, 0, value);
+	public TypedTree newConst(Type type, Object value) {
+		TypedTree t = new TypedTree(CommonSymbols._Const, this.getSource(), this.getSourcePosition(), 0, 0, value);
 		t.setConst(type, value);
 		return t;
 	}
@@ -46,7 +44,6 @@ public class TypedTree extends Tree<TypedTree> {
 	@Override
 	protected TypedTree dupImpl() {
 		TypedTree t = new TypedTree(this.getTag(), this.getSource(), this.getSourcePosition(), this.getLength(), this.size(), getValue());
-		t.hint = this.hint;
 		t.type = this.type;
 		return t;
 	}
@@ -64,7 +61,7 @@ public class TypedTree extends Tree<TypedTree> {
 	// }
 
 	public final Class<?> getClassType() {
-		return TypeSystem.toClass(this.type);
+		return Java.toClassType(this.type);
 	}
 
 	public Type getType() {
@@ -76,75 +73,23 @@ public class TypedTree extends Tree<TypedTree> {
 	}
 
 	public Type setConst(Type type, Object value) {
-		this.hint = Hint.Constant;
+		this.setTag(CommonSymbols._Const);
 		this.setValue(value);
 		this.type = type;
 		return this.type;
 	}
-
-	public void setClass(Hint hint, Class<?> c) {
-		this.hint = hint;
-		this.setValue(c);
-	}
-
-	// public Type setMethod(Hint hint, Method m, TypeVarMatcher matcher) {
-	// this.hint = hint;
-	// this.setValue(m);
-	// this.type = matcher == null ? m.getReturnType() :
-	// matcher.resolve(m.getGenericReturnType(), Object.class);
-	// return this.type;
-	// }
-
-	public final Field getField() {
-		return (Field) this.getValue();
-	}
-
-	public Type setField(Hint hint, Field f) {
-		this.hint = hint;
-		this.setValue(f);
-		this.type = f.getType();
-		return this.type;
-	}
-
-	public Type setInterface(Hint hint, Functor inf) {
-		this.hint = hint;
-		this.setValue(inf);
-		this.type = inf.getReturnType();
-		return this.type;
-	}
-
-	public Type setInterface(Hint hint, Functor inf, TypeMatcher matcher) {
-		this.hint = hint;
-		this.setValue(inf);
-		this.type = matcher != null ? matcher.resolve(inf.getReturnType(), Object.class) : inf.getReturnType();
-		return this.type;
-	}
-
-	//
-	// public final Method getMethod() {
-	// return (Method) this.getValue();
-	// }
 
 	@Override
 	protected void stringfy(String indent, Symbol label, StringBuilder sb) {
 		super.stringfy(indent, label, sb);
 		if (type != null) {
 			sb.append(" :");
-			sb.append(TypeSystem.name(type));
+			sb.append(Java.name(type));
 		}
 	}
 
 	public void done() {
 		this.setTag(CommonSymbols._Empty);
-	}
-
-	public Hint hint() {
-		return this.hint;
-	}
-
-	public void setHint(Hint hint, Type type) {
-		this.hint = hint;
-		this.type = type;
 	}
 
 	/* Tree Manipulation */
@@ -153,7 +98,9 @@ public class TypedTree extends Tree<TypedTree> {
 		UList<TypedTree> l = new UList<TypedTree>(new TypedTree[4]);
 		for (TypedTree t : args) {
 			if (t.size() == 0) {
-				l.add(t);
+				if (!t.is(CommonSymbols._List)) {
+					l.add(t);
+				}
 			} else {
 				for (TypedTree sub : t) {
 					l.add(sub);
@@ -184,7 +131,11 @@ public class TypedTree extends Tree<TypedTree> {
 		this.labels = new Symbol[] { l1, l2, l3 };
 	}
 
-	public Functor getInterface() {
+	public void setFunctor(Functor f) {
+		this.value = f;
+	}
+
+	public Functor getFunctor() {
 		return (Functor) this.value;
 	}
 

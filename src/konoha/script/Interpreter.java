@@ -1,8 +1,5 @@
 package konoha.script;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
-
 import konoha.Array;
 import konoha.ArrayInt;
 import konoha.asm.ScriptCompiler;
@@ -13,38 +10,38 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 	TypeSystem typeSystem;
 	private ScriptCompiler compiler;
 
-	public Interpreter(ScriptContext sc, TypeSystem base) {
+	public Interpreter(ScriptContext sc, TypeSystem ts) {
 		super();
 		init(new Undefined());
 		this.context = sc;
-		this.typeSystem = base;
+		this.typeSystem = ts;
 		this.compiler = new ScriptCompiler(this.typeSystem);
 	}
 
 	static EmptyResult empty = new EmptyResult();
 
 	public Object visit(TypedTree node) {
-		switch (node.hint) {
-		case StaticApplyInterface:
-			return evalApplyHint(node);
-		case Constant:
-			return node.getValue();
-		case ConstructorInterface:
-			return evalConstructorHint(node);
-		case MethodApply2:
-			return evalMethodApplyHint(node);
-		case StaticUnaryInterface:
-		case StaticBinaryInterface:
-		case StaticInvocation2:
-			return evalStaticInvocationHint(node);
-		case GetField:
-			return evalFieldHint(node);
-		case SetField:
-			return evalSetFieldHint(node);
-		case Unique:
-		default:
-			break;
-		}
+		// switch (node.hint) {
+		// case StaticApplyInterface:
+		// return evalApplyHint(node);
+		// case Constant:
+		// return node.getValue();
+		// case ConstructorInterface:
+		// return evalConstructorHint(node);
+		// case MethodApply2:
+		// return evalMethodApplyHint(node);
+		// case StaticUnaryInterface:
+		// case StaticBinaryInterface:
+		// case StaticInvocation2:
+		// return evalStaticInvocationHint(node);
+		// case GetField:
+		// return evalFieldHint(node);
+		// case SetField:
+		// return evalSetFieldHint(node);
+		// case Unique:
+		// default:
+		// break;
+		// }
 		return find(node).accept(node);
 	}
 
@@ -55,7 +52,33 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 	public class Undefined implements SyntaxTreeInterpreter {
 		@Override
 		public Object accept(TypedTree node) {
-			throw new ScriptRuntimeException("TODO: Interpreter " + node);
+			context.log("[TODO]: Interperter " + node);
+			return null;
+		}
+	}
+
+	public class _Functor extends Undefined {
+		@Override
+		public Object accept(TypedTree node) {
+			Object[] args = evalApplyArgument(node);
+			return node.getFunctor().eval(node, args);
+		}
+	}
+
+	// private Object evalFunctorWithArguments(Functor f, TypedTree node) {
+	// Object[] args = evalApplyArgument(node);
+	// return f.eval(node, args);
+	// }
+
+	private Object evalFunctorWithSingleArgument(TypedTree node, Functor f, TypedTree arg) {
+		Object val = visit(arg);
+		return f.eval(node, val);
+	}
+
+	public class Const extends Undefined {
+		@Override
+		public Object accept(TypedTree node) {
+			return node.getValue();
 		}
 	}
 
@@ -82,7 +105,8 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 	public class FuncDecl extends Undefined {
 		@Override
 		public Object accept(TypedTree node) {
-			compiler.compileFuncDecl(node);
+			Functor f = node.getFunctor();
+			compiler.compileFuncDecl(node, f);
 			return empty;
 		}
 	}
@@ -90,7 +114,7 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 	public class VarDecl extends Undefined {
 		@Override
 		public Object accept(TypedTree node) {
-			evalSetFieldHint(node);
+			evalFunctorWithSingleArgument(node, node.getFunctor(), node.get(_expr));
 			return empty;
 		}
 	}
@@ -99,7 +123,7 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 		@Override
 		public Object accept(TypedTree node) {
 			for (TypedTree sub : node.get(_list)) {
-				evalSetFieldHint(sub);
+				evalFunctorWithSingleArgument(sub, sub.getFunctor(), sub.get(_expr));
 			}
 			return empty;
 		}
@@ -159,10 +183,10 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 		@Override
 		public Object accept(TypedTree node) {
 			Object v = visit(node.get(_expr));
-			Functor inf = node.getInterface();
-			if (inf != null) {
-				return inf.eval(null, v);
-			}
+			// Functor0 inf = node.getInterface();
+			// if (inf != null) {
+			// return inf.eval(null, v);
+			// }
 			return v;
 		}
 	}
@@ -209,51 +233,51 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 		}
 	}
 
-	public Object evalFieldHint(TypedTree node) {
-		Field f = node.getField();
-		Object recv = null;
-		if (!Modifier.isStatic(f.getModifiers())) {
-			recv = visit(node.get(_recv));
-		}
-		// System.out.println("eval field:" + recv + " . " + f);
-		return Reflector.getField(recv, f);
-	}
-
-	private Object evalSetFieldHint(TypedTree node) {
-		Field f = node.getField();
-		Object recv = null;
-		if (!Modifier.isStatic(f.getModifiers())) {
-			recv = nullEval(node.get(_recv, null));
-		}
-		Object value = visit(node.get(_expr));
-		Reflector.setField(recv, f, value);
-		return value;
-	}
-
-	private Object evalStaticInvocationHint(TypedTree node) {
-		Object[] args = this.evalApplyArgument(node);
-		Functor inf = node.getInterface();
-		return inf.eval(null, args);
-	}
-
-	public Object evalConstructorHint(TypedTree node) {
-		Object[] args = evalApplyArgument(node.get(_param));
-		Functor inf = node.getInterface();
-		return inf.eval(null, args);
-	}
-
-	public Object evalMethodApplyHint(TypedTree node) {
-		Object recv = visit(node.get(_recv));
-		Object[] args = evalApplyArgument(node.get(_param));
-		Functor inf = node.getInterface();
-		return inf.eval(recv, args);
-	}
-
-	public Object evalApplyHint(TypedTree node) {
-		Object[] args = evalApplyArgument(node.get(_param));
-		Functor inf = node.getInterface();
-		return inf.eval(null, args);
-	}
+	// public Object evalFieldHint(TypedTree node) {
+	// Field f = node.getField();
+	// Object recv = null;
+	// if (!Modifier.isStatic(f.getModifiers())) {
+	// recv = visit(node.get(_recv));
+	// }
+	// // System.out.println("eval field:" + recv + " . " + f);
+	// return Reflector.getField(recv, f);
+	// }
+	//
+	// private Object evalSetFieldHint(TypedTree node) {
+	// Field f = node.getField();
+	// Object recv = null;
+	// if (!Modifier.isStatic(f.getModifiers())) {
+	// recv = nullEval(node.get(_recv, null));
+	// }
+	// Object value = visit(node.get(_expr));
+	// Reflector.setField(recv, f, value);
+	// return value;
+	// }
+	//
+	// private Object evalStaticInvocationHint(TypedTree node) {
+	// Object[] args = this.evalApplyArgument(node);
+	// Functor0 inf = node.getInterface();
+	// return inf.eval(null, args);
+	// }
+	//
+	// public Object evalConstructorHint(TypedTree node) {
+	// Object[] args = evalApplyArgument(node.get(_param));
+	// Functor0 inf = node.getInterface();
+	// return inf.eval(null, args);
+	// }
+	//
+	// public Object evalMethodApplyHint(TypedTree node) {
+	// Object recv = visit(node.get(_recv));
+	// Object[] args = evalApplyArgument(node.get(_param));
+	// Functor0 inf = node.getInterface();
+	// return inf.eval(recv, args);
+	// }
+	//
+	// public Object evalApplyHint(TypedTree node) {
+	// Object[] args = evalApplyArgument(node.get(_param));
+	// Functor0 inf = node.getInterface();
+	// return inf.eval(null, args);
+	// }
 
 	private Object[] evalApplyArgument(TypedTree node) {
 		Object[] args = new Object[node.size()];
@@ -282,15 +306,6 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 				return visit(node.get(_right));
 			}
 			return true;
-		}
-	}
-
-	public class Interpolation extends Undefined {
-		@Override
-		public Object accept(TypedTree node) {
-			Object[] args = evalApplyArgument(node);
-			Functor inf = node.getInterface();
-			return inf.eval(null, new Object[] { args });
 		}
 	}
 

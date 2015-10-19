@@ -11,21 +11,22 @@ public class OperatorNames {
 	}
 
 	static {
-		s("+", "opAdd");
-		s("-", "opSub");
-		s("*", "opMul");
-		s("/", "opDiv");
-		s("%", "opMod");
-		s("==", "opEquals");
-		s("!=", "opNotEquals");
-		s("<=", "opLessThanEquals");
-		s("<", "opLessThan");
-		s(">", "opGreaterThan");
-		s(">=", "opGreaterThanEquals");
-		s("&", "opBitwiseAnd");
-		s("|", "opBitwiseOr");
-		s("^", "opBitwiseXor");
-		s("~", "opCompl");
+		s("+", "add");
+		s("-", "subtract");
+		s("*", "multiply");
+		s("/", "divide");
+		s("%", "mod");
+		s("==", "eq");
+		s("!=", "ne");
+		s("<=", "lte");
+		s("<", "lt");
+		s(">", "gt");
+		s(">=", "gte");
+		s("&", "and");
+		s("|", "or");
+		s("^", "xor");
+		s("~", "not");
+		s("-", "negate");
 	}
 
 	public final static String name(String n) {

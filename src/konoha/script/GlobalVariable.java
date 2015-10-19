@@ -10,15 +10,17 @@ public class GlobalVariable {
 	Type type;
 	Class<?> varClass;
 	Field field;
+	Functor getter;
+	Functor setter;
 
 	GlobalVariable(Type type, Class<?> varClass) {
 		this.type = type;
 		this.varClass = varClass;
 		try {
 			this.field = varClass.getField("v");
-		} catch (NoSuchFieldException e) {
-			e.printStackTrace();
-		} catch (SecurityException e) {
+			this.getter = new Functor(Syntax.Getter, this.field);
+			this.setter = new Functor(Syntax.Setter, this.field);
+		} catch (NoSuchFieldException | SecurityException e) {
 			e.printStackTrace();
 		}
 	}
@@ -29,6 +31,14 @@ public class GlobalVariable {
 
 	public Field getField() {
 		return this.field;
+	}
+
+	public Functor getGetter() {
+		return this.getter;
+	}
+
+	public Functor getSetter() {
+		return this.setter;
 	}
 
 	public boolean matchFunction(TypeSystem ts, Method m) {

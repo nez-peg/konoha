@@ -7,20 +7,12 @@ import java.lang.reflect.TypeVariable;
 import java.lang.reflect.WildcardType;
 import java.util.HashMap;
 
-import nez.util.UList;
-
 public class TypeMatcher {
-	TypeSystem typeSystem;
-	TypeChecker typeChecker;
-	UList<Functor> candiateList = new UList<Functor>(new Functor[32]);
-	String mismatched;
 
 	HashMap<String, Type> vars = new HashMap<>();
 	GenericType recvType;
 
-	TypeMatcher(TypeSystem typeSystem, TypeChecker typeChecker) {
-		this.typeSystem = typeSystem;
-		this.typeChecker = typeChecker;
+	TypeMatcher() {
 	}
 
 	public final void init(Type recvType) {
@@ -30,26 +22,10 @@ public class TypeMatcher {
 			this.recvType = null;
 		}
 		vars.clear();
-		this.candiateList.clear(0);
 	}
 
-	public final void addCandidate(Functor inf) {
-		if (inf != null) {
-			this.candiateList.add(inf);
-		}
-	}
-
-	public final String getErrorMessage() {
-		mismatched = null;
-		if (this.candiateList.size() > 0) {
-			StringBuilder sb = new StringBuilder();
-			for (Functor inf : this.candiateList) {
-				sb.append(" ");
-				sb.append(inf.toString());
-			}
-			mismatched = sb.toString();
-		}
-		return mismatched;
+	public final void reset() {
+		vars.clear();
 	}
 
 	public final boolean match(Type p, Type a) {
@@ -96,18 +72,18 @@ public class TypeMatcher {
 				}
 				return true;
 			}
-			typeSystem.TODO("ParameterizedType %s\n", a.getClass().getName());
+			Debug.TODO("ParameterizedType %s\n", a.getClass().getName());
 			return false;
 		}
 		if (p instanceof WildcardType) {
-			typeSystem.TODO("WildcardType %s\n", p.getClass().getName());
+			Debug.TODO("WildcardType %s\n", p.getClass().getName());
 			return false;
 		}
 		if (p instanceof GenericArrayType) {
-			typeSystem.TODO("GenericArrayType %s\n", p.getClass().getName());
+			Debug.TODO("GenericArrayType %s\n", p.getClass().getName());
 			return false;
 		}
-		typeSystem.TODO("unknown %s\n", p.getClass().getName());
+		Debug.TODO("unknown %s\n", p.getClass().getName());
 		return false;
 	}
 
@@ -138,12 +114,12 @@ public class TypeMatcher {
 			return GenericType.newType((Class<?>) rawtype, params);
 		}
 		if (p instanceof WildcardType) {
-			typeSystem.TODO("WildcardType %s\n", p.getClass().getName());
+			Debug.TODO("WildcardType %s\n", p.getClass().getName());
 		}
 		if (p instanceof GenericArrayType) {
-			typeSystem.TODO("GenericArrayType %s\n", p.getClass().getName());
+			Debug.TODO("GenericArrayType %s\n", p.getClass().getName());
 		}
-		typeSystem.TODO("unknown %s\n", p.getClass().getName());
+		Debug.TODO("unknown %s\n", p.getClass().getName());
 		return unresolved;
 	}
 

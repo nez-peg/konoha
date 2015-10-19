@@ -5,9 +5,10 @@ import java.lang.reflect.Type;
 
 import konoha.Function;
 import konoha.script.CommonSymbols;
+import konoha.script.Functor;
 import konoha.script.GenericType;
-import konoha.script.GlobalVariable;
 import konoha.script.Reflector;
+import konoha.script.Syntax;
 import konoha.script.TypeSystem;
 import konoha.script.TypedTree;
 import nez.ast.Tree;
@@ -84,18 +85,26 @@ public class ScriptCompiler {
 
 	}
 
-	public Class<?> compileFuncDecl(Tree<?> node) {
+	public Functor newPrototypeFunction(TypedTree node, java.lang.reflect.Type returnType, String name, java.lang.reflect.Type[] paramTypes) {
+		String cname = this.asm.nameFunctionClass(node, name);
+		return new Functor(Syntax.Function, new FunctionPrototype(cname, returnType, name, paramTypes));
+	}
+
+	public Class<?> compileFuncDecl(TypedTree node, Functor symbolFunctor) {
 		String name = node.getText(CommonSymbols._name, null);
-		Class<?> function = this.asm.compileStaticFuncDecl(name, (TypedTree) node);
-		typeSystem.loadStaticFunctionClass(function, true);
-		/* global variable as prototype reference */
-		GlobalVariable gv = typeSystem.getGlobalVariable(name);
-		if (gv != null && typeSystem.isFuncType(gv.getType())) {
-			Method m = Reflector.findInvokeMethod(function);
-			if (gv.matchFunction(this.typeSystem, m)) {
-				gv.setFunction(this.compileStaticFunctionObject(m));
-			}
+		String cname = null;
+		if (symbolFunctor != null) {
+			cname = symbolFunctor.getClassName();
+		} else {
+			cname = this.asm.nameFunctionClass(node, name);
+		}
+		Class<?> function = this.asm.compileStaticFuncDecl(cname, node);
+		if (symbolFunctor != null) {
+			symbolFunctor.update(function.getDeclaredMethods()[0]);
+		} else {
+			typeSystem.loadStaticFunctionClass(function, true);
 		}
 		return function;
 	}
+
 }

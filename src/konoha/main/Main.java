@@ -120,7 +120,7 @@ public class Main {
 		for (Completer c : completors) {
 			console.addCompleter(c);
 		}
-		console.setHistoryEnabled(true);
+		// console.setHistoryEnabled(true);
 		// History h = console.getHistory();
 		// ("hoge\rhoge");
 		StringBuilder sb = new StringBuilder();
