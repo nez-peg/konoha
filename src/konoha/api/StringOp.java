@@ -27,11 +27,17 @@ public class StringOp {
 
 	@Method
 	public static final boolean eq(String x, String y) {
+		if (x == null || y == null) {
+			return x == y;
+		}
 		return x.equals(y);
 	}
 
 	@Method
 	public static final boolean ne(String x, String y) {
+		if (x == null || y == null) {
+			return x != y;
+		}
 		return !x.equals(y);
 	}
 

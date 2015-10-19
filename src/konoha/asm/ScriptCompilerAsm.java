@@ -21,7 +21,7 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.GeneratorAdapter;
 import org.objectweb.asm.commons.Method;
 
-public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined> implements CommonSymbols {
+public class ScriptCompilerAsm extends TreeVisitor2<SyntaxTreeAsmVisitor> implements CommonSymbols {
 	private TypeSystem typeSystem;
 	private ScriptClassLoader cLoader;
 	private ClassBuilder cBuilder;
@@ -35,8 +35,9 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 		init(new Undefined());
 	}
 
-	public class Undefined {
-		public void accept(TypedTree node) {
+	public class Undefined implements SyntaxTreeAsmVisitor {
+		@Override
+		public void acceptAsm(TypedTree node) {
 			ConsoleUtils.println(node.formatSourceMessage("error", "unsupproted in ScriptCompiler #" + node));
 			visitDefaultValue(node);
 		}
@@ -44,7 +45,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 
 	public class _Functor extends Undefined {
 		@Override
-		public void accept(TypedTree node) {
+		public void acceptAsm(TypedTree node) {
 			prepare(node.getFunctor());
 			for (TypedTree sub : node) {
 				visit(sub);
@@ -109,58 +110,14 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 
 	public class Const extends Undefined {
 		@Override
-		public void accept(TypedTree node) {
+		public void acceptAsm(TypedTree node) {
 			visitConstantHint(node);
 		}
 	}
 
 	private void visit(TypedTree node) {
-		// switch (node.hint) {
-		// case Constant:
-		// visitConstantHint(node);
-		// return;
-		// case StaticUnaryInterface:
-		// case StaticBinaryInterface:
-		// case StaticInvocation2:
-		// visitStaticInvocationHint(node);
-		// return;
-		// case UpCast:
-		// visitUpCastHint(node);
-		// return;
-		// case DownCast:
-		// visitDownCastHint(node);
-		// return;
-		// case StaticApplyInterface:
-		// visitApplyHint(node);
-		// return;
-		// case RecursiveApply:
-		// visitRecursiveApplyHint(node);
-		// return;
-		// case GetField:
-		// this.visitGetFieldHint(node);
-		// return;
-		// case SetField:
-		// this.visitSetFieldHint(node);
-		// return;
-		// case MethodApply2:
-		// this.visitMehodApplyHint(node);
-		// return;
-		// case ConstructorInterface:
-		// this.visitConstructorHint(node);
-		// return;
-		// case Unique:
-		// break;
-		// default:
-		// break;
-		// }
-		// TRACE("compiling (no hint): " + node.getTag());
-		this.find(node).accept(node);
+		this.find(node).acceptAsm(node);
 	}
-
-	// private Class<?> typeof(TypedTree node) {
-	// // node.getTypedClass();
-	// return typeSystem.typeof(node);
-	// }
 
 	/* typechecker hints */
 
@@ -428,7 +385,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 
 	public class FuncDecl extends Undefined {
 		@Override
-		public void accept(TypedTree node) {
+		public void acceptAsm(TypedTree node) {
 			TypedTree nameNode = node.get(_name);
 			TypedTree args = node.get(_param);
 			String name = nameNode.toText();
@@ -478,7 +435,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 
 	public class ClassDecl extends Undefined {
 		@Override
-		public void accept(TypedTree node) {
+		public void acceptAsm(TypedTree node) {
 			String name = node.getText(_name, null);
 			TypedTree implNode = node.get(_impl, null);
 			TypedTree bodyNode = node.get(_body, null);
@@ -504,7 +461,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 
 	public class Constructor extends Undefined {
 		@Override
-		public void accept(TypedTree node) {
+		public void acceptAsm(TypedTree node) {
 			TypedTree args = node.get(_param);
 			Class<?>[] paramClasses = new Class<?>[args.size()];
 			for (int i = 0; i < args.size(); i++) {
@@ -525,7 +482,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 
 	public class FieldDecl extends Undefined {
 		@Override
-		public void accept(TypedTree node) {
+		public void acceptAsm(TypedTree node) {
 			// TODO
 			// TypedTree list = node.get(_list);
 			// for (TypedTree field : list) {
@@ -537,7 +494,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 
 	public class MethodDecl extends Undefined {
 		@Override
-		public void accept(TypedTree node) {
+		public void acceptAsm(TypedTree node) {
 			// TODO
 		}
 	}
@@ -567,14 +524,14 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 
 	public class Block extends Undefined {
 		@Override
-		public void accept(TypedTree node) {
+		public void acceptAsm(TypedTree node) {
 			visitBlock(node);
 		}
 	}
 
 	public class If extends Undefined {
 		@Override
-		public void accept(TypedTree node) {
+		public void acceptAsm(TypedTree node) {
 			visit(node.get(_cond));
 			mBuilder.push(true);
 
@@ -600,7 +557,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 
 	public class Conditional extends Undefined {
 		@Override
-		public void accept(TypedTree node) {
+		public void acceptAsm(TypedTree node) {
 			visit(node.get(_cond));
 			mBuilder.push(true);
 
@@ -626,7 +583,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 
 	public class While extends Undefined {
 		@Override
-		public void accept(TypedTree node) {
+		public void acceptAsm(TypedTree node) {
 			Label beginLabel = mBuilder.newLabel();
 			Label condLabel = mBuilder.newLabel();
 			Label breakLabel = mBuilder.newLabel();
@@ -651,7 +608,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 
 	public class DoWhile extends Undefined {
 		@Override
-		public void accept(TypedTree node) {
+		public void acceptAsm(TypedTree node) {
 			Label beginLabel = mBuilder.newLabel();
 			Label continueLabel = mBuilder.newLabel();
 			Label breakLabel = mBuilder.newLabel();
@@ -674,7 +631,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 
 	public class For extends Undefined {
 		@Override
-		public void accept(TypedTree node) {
+		public void acceptAsm(TypedTree node) {
 			Label beginLabel = mBuilder.newLabel();
 			Label condLabel = mBuilder.newLabel();
 			Label breakLabel = mBuilder.newLabel();
@@ -714,7 +671,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 	//
 	// public class Switch extends Undefined {
 	// @Override
-	// public void accept(TypedTree node) {
+	// public void acceptAsm(TypedTree node) {
 	// Label condLabel = mBuilder.newLabel();
 	// Label breakLabel = mBuilder.newLabel();
 	// mBuilder.getLoopLabels().push(new Pair<Label, Label>(breakLabel, null));
@@ -778,7 +735,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 
 	public class Switch extends Undefined {
 		@Override
-		public void accept(TypedTree node) {
+		public void acceptAsm(TypedTree node) {
 			Class<?> condType = node.get(_cond).getClassType();
 			if (condType == int.class) {
 				acceptIntSwitch(node);
@@ -1002,7 +959,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 
 	public class Try extends Undefined {
 		@Override
-		public void accept(TypedTree node) {
+		public void acceptAsm(TypedTree node) {
 			TypedTree finallyNode = node.get(_finally, null);
 			TryCatchLabel labels = mBuilder.createNewTryLabel(finallyNode != null);
 			mBuilder.getTryLabels().push(labels);
@@ -1048,7 +1005,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 
 	public class VarDecl extends Undefined {
 		@Override
-		public void accept(TypedTree node) {
+		public void acceptAsm(TypedTree node) {
 			TypedTree varNode = node.get(_name);
 			if (mBuilder.getVar(node.getText(_name, null)) == null) {
 				VarEntry var = mBuilder.createNewVar(varNode.toText(), varNode.getClassType());
@@ -1062,7 +1019,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 
 	public class MultiVarDecl extends Undefined {
 		@Override
-		public void accept(TypedTree node) {
+		public void acceptAsm(TypedTree node) {
 			for (TypedTree sub : node) {
 				TypedTree varNode = sub.get(_name);
 				VarEntry var = mBuilder.createNewVar(varNode.toText(), varNode.getClassType());
@@ -1076,7 +1033,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 
 	public class Assign extends Undefined {
 		@Override
-		public void accept(TypedTree node) {
+		public void acceptAsm(TypedTree node) {
 			String name = node.getText(_left, null);
 			TypedTree valueNode = node.get(_right);
 			VarEntry var = mBuilder.getVar(name);
@@ -1089,7 +1046,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 
 	public class Assert extends Undefined {
 		@Override
-		public void accept(TypedTree node) {
+		public void acceptAsm(TypedTree node) {
 			Label label = mBuilder.newLabel();
 			visit(node.get(_cond));
 			mBuilder.ifCmp(Type.BOOLEAN_TYPE, GeneratorAdapter.EQ, label);
@@ -1101,7 +1058,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 
 	public class Return extends Undefined {
 		@Override
-		public void accept(TypedTree node) {
+		public void acceptAsm(TypedTree node) {
 			if (node.has(_expr)) {
 				visit(node.get(_expr));
 			}
@@ -1111,7 +1068,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 
 	public class Break extends Undefined {
 		@Override
-		public void accept(TypedTree node) {
+		public void acceptAsm(TypedTree node) {
 			Label breakLabel = mBuilder.getLoopLabels().peek().getLeft();
 			mBuilder.jumpToMultipleFinally();
 			mBuilder.goTo(breakLabel);
@@ -1120,7 +1077,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 
 	public class Continue extends Undefined {
 		@Override
-		public void accept(TypedTree node) {
+		public void acceptAsm(TypedTree node) {
 			Label continueLabel = mBuilder.getLoopLabels().peek().getRight();
 			mBuilder.jumpToMultipleFinally();
 			mBuilder.goTo(continueLabel);
@@ -1129,7 +1086,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 
 	public class Throw extends Undefined {
 		@Override
-		public void accept(TypedTree node) {
+		public void acceptAsm(TypedTree node) {
 			if (node.has(_expr)) {
 				visit(node.get(_expr));
 			}
@@ -1139,14 +1096,14 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 
 	public class Expression extends Undefined {
 		@Override
-		public void accept(TypedTree node) {
+		public void acceptAsm(TypedTree node) {
 			visit(node.get(0));
 		}
 	}
 
 	public class Name extends Undefined {
 		@Override
-		public void accept(TypedTree node) {
+		public void acceptAsm(TypedTree node) {
 			VarEntry var = mBuilder.getVar(node.toText());
 			mBuilder.loadFromVar(var);
 		}
@@ -1154,7 +1111,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 
 	public class Cast extends Undefined {
 		@Override
-		public void accept(TypedTree node) {
+		public void acceptAsm(TypedTree node) {
 			visit(node.get(_expr));
 			mBuilder.checkCast(Type.getType(node.getClassType()));
 		}
@@ -1162,7 +1119,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 
 	public class And extends Undefined {
 		@Override
-		public void accept(TypedTree node) {
+		public void acceptAsm(TypedTree node) {
 			Label elseLabel = new Label();
 			Label mergeLabel = new Label();
 			visit(node.get(_left));
@@ -1185,7 +1142,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 
 	public class Or extends Undefined {
 		@Override
-		public void accept(TypedTree node) {
+		public void acceptAsm(TypedTree node) {
 			Label thenLabel = new Label();
 			Label mergeLabel = new Label();
 			visit(node.get(_left));
@@ -1229,41 +1186,41 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 
 	public class Inc extends Undefined {
 		@Override
-		public void accept(TypedTree node) {
+		public void acceptAsm(TypedTree node) {
 			evalSuffixInc(node, 1);
 		}
 	}
 
 	public class Dec extends Undefined {
 		@Override
-		public void accept(TypedTree node) {
+		public void acceptAsm(TypedTree node) {
 			evalSuffixInc(node, -1);
 		}
 	}
 
 	// public class PrefixInc extends Undefined {
 	// @Override
-	// public void accept(TypedTree node) {
+	// public void acceptAsm(TypedTree node) {
 	// evalPrefixInc(node, 1);
 	// }
 	// }
 	//
 	// public class PrefixDec extends Undefined {
 	// @Override
-	// public void accept(TypedTree node) {
+	// public void acceptAsm(TypedTree node) {
 	// evalPrefixInc(node, -1);
 	// }
 	// }
 
 	public class Array extends Undefined {
 		@Override
-		public void accept(TypedTree node) {
+		public void acceptAsm(TypedTree node) {
 		}
 	}
 
 	public class List extends Undefined {
 		@Override
-		public void accept(TypedTree node) {
+		public void acceptAsm(TypedTree node) {
 			for (TypedTree element : node) {
 				visit(element);
 			}
@@ -1272,7 +1229,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 
 	// public class Interpolation extends Undefined {
 	// @Override
-	// public void accept(TypedTree node) {
+	// public void acceptAsm(TypedTree node) {
 	// pushArray(Object.class, node);
 	// AsmFunctor inf = getInterface(node);
 	// inf.pushInstruction(mBuilder);
@@ -1281,7 +1238,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<ScriptCompilerAsm.Undefined>
 
 	public class Empty extends Undefined {
 		@Override
-		public void accept(TypedTree node) {
+		public void acceptAsm(TypedTree node) {
 			// empty
 		}
 	}
