@@ -6,8 +6,8 @@ public interface CommonSymbols {
 
 	// public final static Symbol _anno = Symbol.tag("anno");
 	public final static Symbol _name = Symbol.tag("name");
-	// public final static Symbol _super = Symbol.tag("super");
-	// public final static Symbol _impl = Symbol.tag("impl");
+	public final static Symbol _super = Symbol.tag("super");
+	public final static Symbol _impl = Symbol.tag("impl");
 	public final static Symbol _body = Symbol.tag("body");
 	public final static Symbol _type = Symbol.tag("type");
 	public final static Symbol _expr = Symbol.tag("expr");

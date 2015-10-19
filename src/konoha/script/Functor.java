@@ -75,6 +75,9 @@ public class Functor {
 	}
 
 	public final Type getReturnType() {
+		if (ref instanceof Prototype) {
+			return ((Prototype) ref).getReturnType();
+		}
 		if (ref instanceof Method) {
 			return ((Method) ref).getGenericReturnType();
 		}
@@ -94,6 +97,9 @@ public class Functor {
 				paramTypes = m.getGenericParameterTypes();
 			}
 			return Java.isStatic(m) ? paramTypes.length : paramTypes.length + 1;
+		}
+		if (ref instanceof Prototype) {
+			return this.paramTypes.length;
 		}
 		if (ref instanceof Field) {
 			Field f = (Field) ref;
@@ -122,6 +128,9 @@ public class Functor {
 				return paramTypes[index];
 			}
 			return (index == 0) ? m.getDeclaringClass() : paramTypes[index - 1];
+		}
+		if (ref instanceof Prototype) {
+			return this.paramTypes[index];
 		}
 		if (ref instanceof Field) {
 			Field f = (Field) ref;
@@ -175,6 +184,12 @@ public class Functor {
 			Object v = evalIndy(args);
 			return this.getReturnType() == void.class ? Interpreter.empty : v;
 		} catch (Throwable e) {
+			if (e instanceof Error) {
+				throw (Error) e;
+			}
+			if (e instanceof RuntimeException) {
+				throw (RuntimeException) e;
+			}
 			e.printStackTrace();
 			ConsoleUtils.println("[FIXME] " + node);
 		}

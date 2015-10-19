@@ -129,6 +129,14 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 		}
 	}
 
+	public class ClassDecl extends Undefined {
+		@Override
+		public Object accept(TypedTree node) {
+			compiler.compileClassDecl(node);
+			return empty;
+		}
+	}
+
 	/* boolean */
 
 	public class Block extends Undefined {
