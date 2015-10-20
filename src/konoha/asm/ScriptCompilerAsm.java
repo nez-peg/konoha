@@ -8,7 +8,7 @@ import konoha.main.ConsoleUtils;
 import konoha.script.CommonSymbols;
 import konoha.script.Debug;
 import konoha.script.Functor;
-import konoha.script.Java;
+import konoha.script.Lang;
 import konoha.script.Syntax;
 import konoha.script.TypeSystem;
 import konoha.script.TypedTree;
@@ -69,9 +69,9 @@ public class ScriptCompilerAsm extends TreeVisitor2<SyntaxTreeAsmVisitor> implem
 	void push(Functor f) {
 		if (f.ref instanceof java.lang.reflect.Method) {
 			java.lang.reflect.Method m = (java.lang.reflect.Method) f.ref;
-			if (Java.isStatic(m)) {
+			if (Lang.isStatic(m)) {
 				this.mBuilder.invokeStatic(Type.getType(m.getDeclaringClass()), Method.getMethod(m));
-			} else if (Java.isInterface(m)) {
+			} else if (Lang.isInterface(m)) {
 				this.mBuilder.invokeInterface(Type.getType(m.getDeclaringClass()), Method.getMethod(m));
 			} else {
 				this.mBuilder.invokeVirtual(Type.getType(m.getDeclaringClass()), Method.getMethod(m));
@@ -84,13 +84,13 @@ public class ScriptCompilerAsm extends TreeVisitor2<SyntaxTreeAsmVisitor> implem
 			String name = fld.getName();
 			Type fieldType = Type.getType(fld.getType());
 			if (f.syntax == Syntax.Getter) {
-				if (Java.isStatic(fld)) {
+				if (Lang.isStatic(fld)) {
 					this.mBuilder.getStatic(owner, name, fieldType);
 				} else {
 					this.mBuilder.getField(owner, name, fieldType);
 				}
 			} else {
-				if (Java.isStatic(fld)) {
+				if (Lang.isStatic(fld)) {
 					this.mBuilder.putStatic(owner, name, fieldType);
 				} else {
 					this.mBuilder.putField(owner, name, fieldType);
@@ -269,19 +269,6 @@ public class ScriptCompilerAsm extends TreeVisitor2<SyntaxTreeAsmVisitor> implem
 	// }
 	// }
 
-	void pushArray(Class<?> elementType, TypedTree node) {
-		this.mBuilder.push(node.size());
-		this.mBuilder.newArray(Type.getType(elementType));
-		int index = 0;
-		for (TypedTree sub : node) {
-			this.mBuilder.dup();
-			this.mBuilder.push(index);
-			visit(sub);
-			this.mBuilder.arrayStore(Type.getType(elementType));
-			index++;
-		}
-	}
-
 	// public class Interpolation extends Undefined {
 	// }
 
@@ -370,7 +357,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<SyntaxTreeAsmVisitor> implem
 
 	public String nameFunctionClass(TypedTree node, String name) {
 		String path = node.getSource().getResourceName();
-		String cname = "F_" + name + "_" + unique;
+		String cname = "F" + unique + "$" + name;
 		unique++;
 		return cname;
 	}
@@ -1215,6 +1202,30 @@ public class ScriptCompilerAsm extends TreeVisitor2<SyntaxTreeAsmVisitor> implem
 	public class Array extends Undefined {
 		@Override
 		public void acceptAsm(TypedTree node) {
+			Class<?> c = node.getClassType();
+			Class<?> elemClass = TypeSystem.getArrayElementClass(c);
+			if (Lang.isNativeArray(c)) {
+				System.out.println("native array: " + elemClass);
+				pushArray(elemClass, node);
+			} else {
+				mBuilder.newInstance(Type.getType(c));
+				mBuilder.dup();
+				pushArray(elemClass, node);
+				mBuilder.invokeConstructor(Type.getType(node.getClassType()), Method.getMethod("void <init> (" + elemClass.getName() + "[])"));
+			}
+		}
+	}
+
+	void pushArray(Class<?> elementType, TypedTree node) {
+		this.mBuilder.push(node.size());
+		this.mBuilder.newArray(Type.getType(elementType));
+		int index = 0;
+		for (TypedTree sub : node) {
+			this.mBuilder.dup();
+			this.mBuilder.push(index);
+			visit(sub);
+			this.mBuilder.arrayStore(Type.getType(elementType));
+			index++;
 		}
 	}
 
@@ -1236,151 +1247,19 @@ public class ScriptCompilerAsm extends TreeVisitor2<SyntaxTreeAsmVisitor> implem
 	// }
 	// }
 
+	public class Null extends Undefined {
+		@Override
+		public void acceptAsm(TypedTree node) {
+			mBuilder.pushNull();
+		}
+	}
+
 	public class Empty extends Undefined {
 		@Override
 		public void acceptAsm(TypedTree node) {
 			// empty
 		}
 	}
-
-	// public void generateRunTimeLibrary(TypedTree fieldNode, TypedTree
-	// argsNode) {
-	// String classPath = "";
-	// String methodName = null;
-	// for (int i = 0; i < fieldNode.size(); i++) {
-	// if (i < fieldNode.size() - 2) {
-	// classPath += fieldNode.get(i).toText();
-	// classPath += ".";
-	// } else if (i == fieldNode.size() - 2) {
-	// classPath += fieldNode.get(i).toText();
-	// } else {
-	// methodName = fieldNode.get(i).toText();
-	// }
-	// }
-	// Type[] argTypes = new Type[argsNode.size()];
-	// for (int i = 0; i < argsNode.size(); i++) {
-	// TypedTree arg = argsNode.get(i);
-	// this.visit(arg);
-	// argTypes[i] = Type.getType(arg.getTypedClass());
-	// }
-	// this.mBuilder.callDynamicMethod("nez/ast/jcode/StandardLibrary",
-	// "bootstrap", methodName, classPath, argTypes);
-	// }
-	//
-	// public void visitField(TypedTree node) {
-	// TypedTree top = node.get(0);
-	// VarEntry var = null;
-	// if (_Name.equals(top.getTag())) {
-	// var = this.scope.getLocalVar(top.toText());
-	// if (var != null) {
-	// this.mBuilder.loadFromVar(var);
-	// } else {
-	//
-	// return;
-	// }
-	// } else {
-	// visit(top);
-	// }
-	// for (int i = 1; i < node.size(); i++) {
-	// TypedTree member = node.get(i);
-	// if (_Name.equals(member.getTag())) {
-	// this.mBuilder.getField(Type.getType(var.getVarClass()), member.toText(),
-	// Type.getType(Object.class));
-	// visit(member);
-	// }
-	// }
-	// }
-	//
-	// public void visitUnaryNode(TypedTree node) {
-	// TypedTree child = node.get(0);
-	// this.visit(child);
-	// node.setType(this.typeInfferUnary(node.get(0)));
-	// this.mBuilder.callStaticMethod(JCodeOperator.class, node.getTypedClass(),
-	// node.getTag().getSymbol(), child.getTypedClass());
-	// this.popUnusedValue(node);
-	// }
-	//
-	// public void visitPlus(TypedTree node) {
-	// this.visitUnaryNode(node);
-	// }
-	//
-	// public void visitMinus(TypedTree node) {
-	// this.visitUnaryNode(node);
-	// }
-	//
-	// private Class<?> typeInfferUnary(TypedTree node) {
-	// Class<?> nodeType = node.getTypedClass();
-	// if (nodeType == int.class) {
-	// return int.class;
-	// } else if (nodeType == double.class) {
-	// return double.class;
-	// }
-	// throw new RuntimeException("type error: " + node);
-	// }
-
-	// public void visitNull(TypedTree p) {
-	// this.mBuilder.pushNull();
-	// }
-
-	// void visitArray(TypedTree p){
-	// this.mBuilder.newArray(Object.class);
-	// }
-
-	// public void visitList(TypedTree node) {
-	// for (TypedTree element : node) {
-	// visit(element);
-	// }
-	// }
-
-	// public void visitTrue(TypedTree p) {
-	// // p.setType(boolean.class);
-	// this.mBuilder.push(true);
-	// }
-	//
-	// public void visitFalse(TypedTree p) {
-	// // p.setType(boolean.class);
-	// this.mBuilder.push(false);
-	// }
-
-	// public void visitInt(TypedTree p) {
-	// // p.setType(int.class);
-	// this.mBuilder.push(Integer.parseInt(p.toText()));
-	// }
-	//
-	// public void visitInteger(TypedTree p) {
-	// this.visitInt(p);
-	// }
-	//
-	// public void visitOctalInteger(TypedTree p) {
-	// // p.setType(int.class);
-	// this.mBuilder.push(Integer.parseInt(p.toText(), 8));
-	// }
-	//
-	// public void visitHexInteger(TypedTree p) {
-	// // p.setType(int.class);
-	// this.mBuilder.push(Integer.parseInt(p.toText(), 16));
-	// }
-	//
-	// public void visitDouble(TypedTree p) {
-	// // p.setType(double.class);
-	// this.mBuilder.push(Double.parseDouble(p.toText()));
-	// }
-	//
-	// public void visitString(TypedTree p) {
-	// // p.setType(String.class);
-	// this.mBuilder.push(p.toText());
-	// }
-	//
-	// public void visitCharacter(TypedTree p) {
-	// // p.setType(String.class);
-	// this.mBuilder.push(p.toText());
-	// // p.setType(char.class);
-	// // this.mBuilder.push(p.toText().charAt(0));
-	// }
-
-	// public void visitUndefined(TypedTree p) {
-	// System.out.println("undefined: " + p.getTag().getSymbol());
-	// }
 
 	/* code copied from libzen */
 

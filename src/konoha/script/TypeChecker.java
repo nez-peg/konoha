@@ -14,7 +14,6 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 	TypeSystem typeSystem;
 
 	public TypeChecker(ScriptContext context, TypeSystem typeSystem) {
-		// super(TypedTree.class);
 		this.context = context;
 		this.typeSystem = typeSystem;
 		init(new Undefined());
@@ -63,7 +62,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 	}
 
 	private String name(Type t) {
-		return Java.name(t);
+		return Lang.name(t);
 	}
 
 	public void typed(TypedTree node, Type c) {
@@ -691,8 +690,8 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 		if (t == null) {
 			throw error(node.get(_type), Message.UndefinedType_, node.getText(_type, ""));
 		}
-		Class<?> req = Java.toClassType(t);
-		Class<?> exp = Java.toClassType(inner);
+		Class<?> req = Lang.toClassType(t);
+		Class<?> exp = Lang.toClassType(inner);
 		if (req.isAssignableFrom(exp)) { // upcast
 			node.setTag(_UpCast);
 			return t;
@@ -820,7 +819,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 
 	private Type typeUnary(TypedTree node, String name) {
 		Type left = visit(node.get(_expr));
-		Type common = Java.toPrimitiveType(left);
+		Type common = Lang.toPrimitiveType(left);
 		if (left != common) {
 			left = this.tryCastBeforeMatching(common, node, _expr);
 		}
@@ -848,7 +847,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 	public void unifyBinaryA(TypedTree node) {
 		Type left = visit(node.get(_left));
 		Type right = visit(node.get(_right));
-		Type common = Java.unifyAdd(Java.toPrimitiveType(left), Java.toPrimitiveType(right));
+		Type common = Lang.unifyAdd(Lang.toPrimitiveType(left), Lang.toPrimitiveType(right));
 		if (left != common) {
 			this.tryCastBeforeMatching(common, node, _left);
 		}
@@ -860,7 +859,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 	public void unifyBinaryBit(TypedTree node) {
 		Type left = visit(node.get(_left));
 		Type right = visit(node.get(_right));
-		Type common = Java.unifyBit(Java.toPrimitiveType(left), Java.toPrimitiveType(right));
+		Type common = Lang.unifyBit(Lang.toPrimitiveType(left), Lang.toPrimitiveType(right));
 		if (left != common) {
 			this.tryCastBeforeMatching(common, node, _left);
 		}
@@ -1057,7 +1056,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 	public class Instanceof extends Undefined {
 		@Override
 		public Type acceptType(TypedTree node) {
-			Class<?> c = Java.toClassType(visit(node.get(_left)));
+			Class<?> c = Lang.toClassType(visit(node.get(_left)));
 			Class<?> t = resolveClass(node.get(_right), null);
 			if (!t.isAssignableFrom(c)) {
 				reportWarning(node, "incompatible instanceof operation: %s", name(t));
@@ -1168,20 +1167,6 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 		}
 	}
 
-	public class Interpolation extends Undefined {
-		@Override
-		public Type acceptType(TypedTree node) {
-			for (int i = 0; i < node.size(); i++) {
-				TypedTree sub = node.get(i);
-				visit(sub);
-				if (sub.getType() != Object.class) {
-					enforceType(Object.class, node, i);
-				}
-			}
-			return functor(node, KonohaRuntime.String_join());
-		}
-	}
-
 	/* object oriented */
 
 	public class New extends Undefined {
@@ -1222,7 +1207,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 	private boolean isStaticClassMethod(Functor f, int paramSize) {
 		if (f.ref instanceof Method) {
 			Method m = (Method) f.ref;
-			if (Java.isStatic(m) && m.getParameterTypes().length != paramSize) {
+			if (Lang.isStatic(m) && m.getParameterTypes().length != paramSize) {
 				return true;
 			}
 		}
@@ -1253,24 +1238,20 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 		return unfound(node, unmatched, Message.Method__, name(staticClass), name);
 	}
 
-	// public Type typeIndexer(TypedTree node) {
-	// Type recvType = visit(node.get(_recv));
-	// typeArguments(node.get(_param));
-	// TypeMatcher2 methodMatcher = initTypeMatcher(recvType);
-	// Functor inf = resolveObjectMethod(methodMatcher, recvType, "get",
-	// node.get(_param));
-	// if (inf != null) {
-	// return node.setInterface(Hint.MethodApply2, inf, methodMatcher);
-	// }
-	// if (typeSystem.isDynamic(recvType)) {
-	// TODO("Dynamic Indexer");
-	// // node.makeFlattenedList(node.get(_recv), node.get(_param));
-	// // return node.setMethod(Hint.StaticInvocation,
-	// // typeSystem.ObjectIndexer, null);
-	// }
-	// return this.unfound(node, methodMatcher, Message.Indexer_,
-	// name(recvType));
-	// }
+	public Type typeIndexer(TypedTree node) {
+		Type recvType = visit(node.get(_recv));
+		Type[] a = typeArguments(recvType, node.get(_param));
+		Functor f = typeSystem.getMethod(methodMatcher, recvType, "get", a);
+		if (f != null) {
+			return found(node, f, methodMatcher, node.get(_recv), node.get(_param));
+		}
+		if (typeSystem.isDynamic(recvType)) {
+			Debug.TODO("Indy");
+		}
+		Functor[] unmatched = typeSystem.getMethods(recvType, "get");
+		return unfound(node, unmatched, Message.Indexer_, name(recvType));
+	}
+
 	//
 	// private Type typeSetIndexer(TypedTree node, TypedTree recv, TypedTree
 	// param, TypedTree expr) {
@@ -1353,6 +1334,24 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 			Type elementType = typeCollectionElement(node, 1);
 			Type arrayType = typeSystem.newArrayType(elementType);
 			return arrayType;
+		}
+	}
+
+	public class Interpolation extends Undefined {
+		@Override
+		public Type acceptType(TypedTree node) {
+			for (int i = 0; i < node.size(); i++) {
+				TypedTree sub = node.get(i);
+				visit(sub);
+				if (sub.getType() != Object.class) {
+					enforceType(Object.class, node, i);
+				}
+			}
+			TypedTree t = node.dup();
+			t.setTag(_Array);
+			t.setType(Object[].class);
+			node.make(_expr, t);
+			return functor(node, KonohaRuntime.String_join());
 		}
 	}
 
@@ -1618,7 +1617,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 		if (t == null) {
 			return deftype;
 		}
-		return Java.toClassType(t);
+		return Lang.toClassType(t);
 	}
 
 	// matching library

@@ -6,6 +6,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import jline.console.ConsoleReader;
+import jline.console.completer.CandidateListCompletionHandler;
 import jline.console.completer.Completer;
 import konoha.message.Message;
 import konoha.script.EmptyResult;
@@ -113,16 +114,14 @@ public class Main {
 		ConsoleUtils.end();
 		List<Completer> completors = new LinkedList<Completer>();
 
-		// ConsoleReader console = new ConsoleReader();
 		// completors.add(new AnsiStringsCompleter("\u001B[1mfoo\u001B[0m",
 		// "bar", "\u001B[32mbaz\u001B[0m"));
-		// CandidateListCompletionHandler handler = new
-		// CandidateListCompletionHandler();
-		// handler.setStripAnsi(true);
-		// console.setCompletionHandler(handler);
-		// for (Completer c : completors) {
-		// console.addCompleter(c);
-		// }
+		CandidateListCompletionHandler handler = new CandidateListCompletionHandler();
+		handler.setStripAnsi(true);
+		console.setCompletionHandler(handler);
+		for (Completer c : completors) {
+			console.addCompleter(c);
+		}
 		// History h = console.getHistory();
 		// ("hoge\rhoge");
 		StringBuilder sb = new StringBuilder();

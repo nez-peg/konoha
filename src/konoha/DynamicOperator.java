@@ -2,7 +2,7 @@ package konoha;
 
 import java.util.Comparator;
 
-import konoha.script.Java;
+import konoha.script.Lang;
 import konoha.script.ScriptRuntimeException;
 
 public class DynamicOperator {
@@ -34,7 +34,7 @@ public class DynamicOperator {
 	}
 
 	private static String c(Object o) {
-		return Java.name(o.getClass());
+		return Lang.name(o.getClass());
 	}
 
 	// @Deprecated

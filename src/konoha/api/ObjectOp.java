@@ -5,13 +5,13 @@ import java.util.Comparator;
 import konoha.Coercion;
 import konoha.Conversion;
 import konoha.Method;
-import konoha.script.Java;
+import konoha.script.Lang;
 import konoha.script.ScriptRuntimeException;
 
 public class ObjectOp {
 
 	private static String c(Object o) {
-		return Java.name(o.getClass());
+		return Lang.name(o.getClass());
 	}
 
 	@Method

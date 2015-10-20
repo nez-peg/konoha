@@ -1,6 +1,6 @@
 package konoha.asm;
 
-import konoha.script.Java;
+import konoha.script.Lang;
 
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.GeneratorAdapter;
@@ -50,9 +50,9 @@ public abstract class Prototype {
 	public static Method method(java.lang.reflect.Type returnType, String methodName, java.lang.reflect.Type[] paramTypes) {
 		Type[] paramTypeDescs = new Type[paramTypes.length];
 		for (int i = 0; i < paramTypes.length; i++) {
-			paramTypeDescs[i] = Type.getType(Java.toClassType(paramTypes[i]));
+			paramTypeDescs[i] = Type.getType(Lang.toClassType(paramTypes[i]));
 		}
-		return new Method(methodName, Type.getType(Java.toClassType(returnType)), paramTypeDescs);
+		return new Method(methodName, Type.getType(Lang.toClassType(returnType)), paramTypeDescs);
 	}
 
 	@Override

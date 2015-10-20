@@ -61,7 +61,7 @@ public class TypedTree extends Tree<TypedTree> {
 	// }
 
 	public final Class<?> getClassType() {
-		return Java.toClassType(this.type);
+		return Lang.toClassType(this.type);
 	}
 
 	public Type getType() {
@@ -84,7 +84,7 @@ public class TypedTree extends Tree<TypedTree> {
 		super.stringfy(indent, label, sb);
 		if (type != null) {
 			sb.append(" :");
-			sb.append(Java.name(type));
+			sb.append(Lang.name(type));
 		}
 	}
 

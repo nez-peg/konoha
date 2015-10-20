@@ -8,13 +8,93 @@ import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
-public class Java {
+import konoha.ArrayInt;
+import konoha.KonohaArray;
+
+public class Lang {
+
+	/* Type */
 
 	public final static Class<?> toClassType(Type type) {
 		if (type instanceof Class<?>) {
 			return (Class<?>) type;
 		}
 		return ((GenericType) type).base;
+	}
+
+	/* Array */
+
+	public final static boolean isKonohaArray(Type atype) {
+		Class<?> c = toClassType(atype);
+		return KonohaArray.class.isAssignableFrom(c);
+	}
+
+	public final static boolean isNativeArray(Type atype) {
+		if (atype instanceof Class<?>) {
+			return ((Class<?>) atype).isArray();
+		}
+		return false;
+	}
+
+	public final static Type getArrayElementType(Type atype) {
+		if (isNativeArray(atype)) {
+			return ((Class<?>) atype).getComponentType();
+		}
+		if (atype instanceof GenericType) {
+			return ((GenericType) atype).getParameterTypes()[0];
+		}
+		if (isKonohaArray(atype)) {
+			if (atype == ArrayInt.class) {
+				return int.class;
+			}
+		}
+		return Object.class;
+	}
+
+	public final static Class<?> getArrayElementClass(Type atype) {
+		return toClassType(getArrayElementType(atype));
+	}
+
+	public static final String name(Type t) {
+		if (t == null) {
+			return "untyped";
+		}
+		if (isKonohaArray(t) || isNativeArray(t)) {
+			return getArrayElementType(t) + "[]";
+		}
+		if (t instanceof Class<?>) {
+			if (t == Object.class) {
+				return "?";
+			}
+			String n = ((Class<?>) t).getName();
+			if (n.startsWith("java.lang.")) {
+				return n.substring(10);
+			}
+			return n;
+		}
+		return t.toString();
+	}
+
+	public final static Type toPrimitiveType(Type t) {
+		if (t == Double.class || t == Float.class || t == float.class) {
+			return double.class;
+		}
+		if (t == Long.class) {
+			return long.class;
+		}
+		if (t == Integer.class || t == Short.class || t == short.class) {
+			return int.class;
+		}
+		if (t == Character.class) {
+			return char.class;
+		}
+		if (t == Boolean.class) {
+			return boolean.class;
+		}
+		if (t == Byte.class) {
+			return byte.class;
+		}
+		return t;
 	}
 
 	public final static boolean isPublic(Method m) {
@@ -90,42 +170,6 @@ public class Java {
 
 	public final static boolean isSetterMethod(Method m) {
 		return false;
-	}
-
-	public static final String name(Type t) {
-		if (t == null) {
-			return "untyped";
-		}
-		if (t instanceof Class<?>) {
-			String n = ((Class<?>) t).getName();
-			if (n.startsWith("java.lang.") || n.startsWith("java.util.")) {
-				return n.substring(10);
-			}
-			return n;
-		}
-		return t.toString();
-	}
-
-	public final static Type toPrimitiveType(Type t) {
-		if (t == Double.class || t == Float.class || t == float.class) {
-			return double.class;
-		}
-		if (t == Long.class) {
-			return long.class;
-		}
-		if (t == Integer.class || t == Short.class || t == short.class) {
-			return int.class;
-		}
-		if (t == Character.class) {
-			return char.class;
-		}
-		if (t == Boolean.class) {
-			return boolean.class;
-		}
-		if (t == Byte.class) {
-			return byte.class;
-		}
-		return t;
 	}
 
 	public final static Type unifyAdd(Type t, Type t2) {

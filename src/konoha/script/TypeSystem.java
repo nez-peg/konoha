@@ -4,7 +4,6 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.util.HashMap;
 
-import konoha.ArrayInt;
 import konoha.Function;
 import konoha.api.BooleanOp;
 import konoha.api.DoubleOp;
@@ -82,20 +81,6 @@ public class TypeSystem extends FunctorLookup implements CommonSymbols {
 		return GenericType.newType(konoha.Array.class, elementType);
 	}
 
-	public static Type getArrayElementType(Type atype) {
-		if (atype instanceof GenericType) {
-			return ((GenericType) atype).getParameterTypes()[0];
-		}
-		if (atype == ArrayInt.class) {
-			return int.class;
-		}
-		return Object.class;
-	}
-
-	public static Class<?> getArrayElementClass(Type atype) {
-		return Java.toClassType(getArrayElementType(atype));
-	}
-
 	/* FuncType */
 
 	public Class<?> getFuncType(Class<?> returnType, Class<?>... paramTypes) {
@@ -114,9 +99,9 @@ public class TypeSystem extends FunctorLookup implements CommonSymbols {
 		if (c == null) {
 			Class<?>[] p = new Class<?>[paramTypes.length];
 			for (int i = 0; i < p.length; i++) {
-				p[i] = Java.toClassType(paramTypes[i]);
+				p[i] = Lang.toClassType(paramTypes[i]);
 			}
-			c = this.compl.compileFuncType(name, Java.toClassType(returnType), p);
+			c = this.compl.compileFuncType(name, Lang.toClassType(returnType), p);
 			this.TypeNames.put(name, c);
 		}
 		return c;
@@ -176,7 +161,7 @@ public class TypeSystem extends FunctorLookup implements CommonSymbols {
 	}
 
 	public GlobalVariable newGlobalVariable(Type type, String name) {
-		Class<?> varClass = this.compl.compileGlobalVariable(Java.toClassType(type), name);
+		Class<?> varClass = this.compl.compileGlobalVariable(Lang.toClassType(type), name);
 		GlobalVariable gv = new GlobalVariable(type, varClass);
 		this.GlobalVariables.put(name, gv);
 		return gv;

@@ -11,8 +11,8 @@ public class StringOp {
 	}
 
 	@Method
-	public static final String get(String x, int n) {
-		return String.valueOf(x.charAt(n));
+	public static final char get(String x, int n) {
+		return x.charAt(n);
 	}
 
 	@Method

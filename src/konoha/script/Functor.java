@@ -96,7 +96,7 @@ public class Functor {
 			if (paramTypes == null) { // Getter
 				paramTypes = m.getGenericParameterTypes();
 			}
-			return Java.isStatic(m) ? paramTypes.length : paramTypes.length + 1;
+			return Lang.isStatic(m) ? paramTypes.length : paramTypes.length + 1;
 		}
 		if (ref instanceof Prototype) {
 			return this.paramTypes.length;
@@ -104,9 +104,9 @@ public class Functor {
 		if (ref instanceof Field) {
 			Field f = (Field) ref;
 			if (syntax == Syntax.Getter) { // Getter
-				return Java.isStatic(f) ? 0 : 1;
+				return Lang.isStatic(f) ? 0 : 1;
 			}
-			return Java.isStatic(f) ? 1 : 2;
+			return Lang.isStatic(f) ? 1 : 2;
 		}
 		if (ref instanceof Constructor<?>) {
 			Constructor<?> c = (Constructor<?>) ref;
@@ -124,7 +124,7 @@ public class Functor {
 			if (paramTypes == null) {
 				paramTypes = m.getGenericParameterTypes();
 			}
-			if (Java.isStatic(m)) {
+			if (Lang.isStatic(m)) {
 				return paramTypes[index];
 			}
 			return (index == 0) ? m.getDeclaringClass() : paramTypes[index - 1];

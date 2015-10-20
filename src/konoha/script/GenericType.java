@@ -43,7 +43,7 @@ public class GenericType implements Type {
 		TypeVariable<?>[] p = base.getTypeParameters();
 		for (TypeVariable<?> v : p) {
 			if (name.equals(v.getName())) {
-				return Java.toClassType(params[c]);
+				return Lang.toClassType(params[c]);
 			}
 			c++;
 		}
@@ -63,7 +63,7 @@ public class GenericType implements Type {
 			return resolveType(((TypeVariable<?>) t).getName(), Object.class);
 		}
 		if (t instanceof ParameterizedType) {
-			Class<?> raw = Java.toClassType(((ParameterizedType) t).getRawType());
+			Class<?> raw = Lang.toClassType(((ParameterizedType) t).getRawType());
 			Type[] params = ((ParameterizedType) t).getActualTypeArguments().clone();
 			for (int i = 0; i < params.length; i++) {
 				params[i] = resolveClass(params[i]);
@@ -75,7 +75,7 @@ public class GenericType implements Type {
 	}
 
 	public Class<?> resolveClass(Type t) {
-		return Java.toClassType(this.resolveType(t));
+		return Lang.toClassType(this.resolveType(t));
 	}
 
 	static HashMap<String, Type> uniqueMap = new HashMap<>();

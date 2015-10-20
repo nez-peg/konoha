@@ -28,7 +28,7 @@ public class FunctorLookup {
 		sb.append(name);
 		for (Type t : a) {
 			sb.append("#");
-			sb.append(Java.name(t));
+			sb.append(Lang.name(t));
 		}
 		return sb.toString();
 	}
@@ -41,7 +41,7 @@ public class FunctorLookup {
 		sb.append(name);
 		for (Type t : a) {
 			sb.append("#");
-			sb.append(Java.name(t));
+			sb.append(Lang.name(t));
 		}
 		return sb.toString();
 	}
@@ -55,7 +55,7 @@ public class FunctorLookup {
 	}
 
 	public final Functor getCast(Type f, Type t) {
-		return this.getCast(Java.toClassType(f), Java.toClassType(t));
+		return this.getCast(Lang.toClassType(f), Lang.toClassType(t));
 	}
 
 	protected void addCastMethod(Method m) {
@@ -75,7 +75,7 @@ public class FunctorLookup {
 	}
 
 	public final Functor getConv(Type f, Type t) {
-		return this.getConv(Java.toClassType(f), Java.toClassType(t));
+		return this.getConv(Lang.toClassType(f), Lang.toClassType(t));
 	}
 
 	/* class */
@@ -108,16 +108,16 @@ public class FunctorLookup {
 
 	public final void addSymbol(Class<?> importedClass) {
 		for (Method m : importedClass.getDeclaredMethods()) {
-			if (Java.isPublicStatic(m)) {
-				if (Java.isCastMethod(m)) {
+			if (Lang.isPublicStatic(m)) {
+				if (Lang.isCastMethod(m)) {
 					addCastMethod(m);
 					continue;
 				}
-				if (Java.isConvMethod(m)) {
+				if (Lang.isConvMethod(m)) {
 					addConvertMethod(m);
 					continue;
 				}
-				if (Java.isExtraMethod(m)) {
+				if (Lang.isExtraMethod(m)) {
 					addClassMethod(m);
 					continue;
 				}
@@ -215,7 +215,7 @@ public class FunctorLookup {
 	}
 
 	public final Functor[] getConstructors(Type newType) {
-		Class<?> c = Java.toClassType(newType);
+		Class<?> c = Lang.toClassType(newType);
 		String key = c.getName() + ":<>";
 		Functor[] list = symbolCacheMap.get(key);
 		if (list != null) {
@@ -231,7 +231,7 @@ public class FunctorLookup {
 	}
 
 	public final Functor getConstructor(TypeMatcher matcher, Type newType, Type[] a) {
-		Class<?> c = Java.toClassType(newType);
+		Class<?> c = Lang.toClassType(newType);
 		matcher.init(newType);
 		String key = keyMethod(c, "<>", a);
 		if (this.symbolCacheMap1.containsKey(key)) {
@@ -268,7 +268,7 @@ public class FunctorLookup {
 		}
 		try {
 			Field f = c.getField(name);
-			if (Java.isStatic(f)) {
+			if (Lang.isStatic(f)) {
 				Functor ff = new Functor(Syntax.Getter, f);
 				this.symbolCacheMap1.put(key, ff);
 				return ff;
@@ -280,7 +280,7 @@ public class FunctorLookup {
 	}
 
 	public final Functor getGetter(TypeMatcher matcher, Type recvType, String name) {
-		Class<?> c = Java.toClassType(recvType);
+		Class<?> c = Lang.toClassType(recvType);
 		String key = c.getName() + ":@" + name;
 		matcher.init(recvType);
 		if (this.symbolCacheMap1.containsKey(key)) {
@@ -315,14 +315,14 @@ public class FunctorLookup {
 
 	private boolean isGetterFunctor(Functor f) {
 		if (f.ref instanceof Method) {
-			return Java.isGetterMethod(((Method) f.ref));
+			return Lang.isGetterMethod(((Method) f.ref));
 		}
 		return false;
 	}
 
 	public final Functor getSetter(TypeMatcher matcher, Type recvType, String name) {
 		matcher.init(recvType);
-		Class<?> c = Java.toClassType(recvType);
+		Class<?> c = Lang.toClassType(recvType);
 		String key = c.getName() + ":^" + name;
 		if (this.symbolCacheMap1.containsKey(key)) {
 			return this.symbolCacheMap1.get(key);
@@ -356,7 +356,7 @@ public class FunctorLookup {
 
 	private boolean isSetterFunctor(Functor f) {
 		if (f.ref instanceof Method) {
-			return Java.isSetterMethod(((Method) f.ref));
+			return Lang.isSetterMethod(((Method) f.ref));
 		}
 		return false;
 	}
@@ -377,7 +377,7 @@ public class FunctorLookup {
 	}
 
 	public Functor[] getMethods(Type c, String name) {
-		return getMethods(Java.toClassType(c), name);
+		return getMethods(Lang.toClassType(c), name);
 	}
 
 	private void findMethod(Class<?> c, String name, UList<Functor> l) {
@@ -393,7 +393,7 @@ public class FunctorLookup {
 			cur = cur.getSuperclass();
 		}
 		for (Method m : c.getDeclaredMethods()) {
-			if (Java.isPublic(m) && name.equals(m.getName())) {
+			if (Lang.isPublic(m) && name.equals(m.getName())) {
 				l.add(new Functor(Syntax.Method, m));
 			}
 		}
@@ -401,7 +401,7 @@ public class FunctorLookup {
 
 	public final Functor getMethod(TypeMatcher matcher, Type recvType, String name, Type[] a) {
 		assert (a[0] == recvType);
-		Class<?> c = Java.toClassType(recvType);
+		Class<?> c = Lang.toClassType(recvType);
 		matcher.init(recvType);
 		String key = keyMethod(c, name, a);
 		if (this.symbolCacheMap1.containsKey(key)) {
@@ -442,7 +442,7 @@ public class FunctorLookup {
 			return true;
 		}
 		if (p instanceof Class<?> || matcher == null) {
-			if (((Class<?>) p).isAssignableFrom(Java.toClassType(a))) {
+			if (((Class<?>) p).isAssignableFrom(Lang.toClassType(a))) {
 				return true;
 			}
 			return false;
