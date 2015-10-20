@@ -1218,39 +1218,19 @@ public class ScriptCompilerAsm extends TreeVisitor2<SyntaxTreeAsmVisitor> implem
 		}
 	}
 
-	// private void evalPrefixInc(TypedTree node, int amount) {
-	// String name = node.getText(_name, null);
-	// VarEntry var = this.mBuilder.getVar(name);
-	// if (var != null) {
-	// this.mBuilder.callIinc(var, amount);
-	// this.mBuilder.loadFromVar(var);
-	// } else {
-	// throw new RuntimeException("undefined variable " + name);
-	// }
-	// }
-
-	private void evalSuffixInc(TypedTree node, int amount) {
-		String name = node.getText(_expr, null);
-		VarEntry var = mBuilder.getVar(name);
-		if (var != null) {
-			mBuilder.loadFromVar(var);
-			this.mBuilder.callIinc(var, amount);
-		} else {
-			throw new RuntimeException("undefined variable " + name);
-		}
-	}
-
 	public class Inc extends Undefined {
 		@Override
 		public void acceptAsm(TypedTree node) {
-			evalSuffixInc(node, 1);
+			// evalSuffixInc(node, 1);
+			visit(node.get(_expr));
+			visit(node.get(_body));
 		}
 	}
 
 	public class Dec extends Undefined {
 		@Override
 		public void acceptAsm(TypedTree node) {
-			evalSuffixInc(node, -1);
+			// evalSuffixInc(node, -1);
 		}
 	}
 
