@@ -137,7 +137,10 @@ public class Functor {
 			if (syntax == Syntax.Getter) { // Getter
 				return f.getDeclaringClass();
 			}
-			return index == 0 ? f.getDeclaringClass() : f.getGenericType();
+			if (!Lang.isStatic(f)) {
+				return index == 0 ? f.getDeclaringClass() : f.getGenericType();
+			}
+			return f.getGenericType();
 		}
 		if (ref instanceof Constructor<?>) {
 			if (paramTypes == null) {

@@ -261,7 +261,7 @@ public class FunctorLookup {
 	/** Field */
 
 	public final Functor getStaticGetter(TypeMatcher matcher, Class<?> c, String name) {
-		String key = c.getName() + ":*" + name;
+		String key = c.getName() + ":<" + name;
 		matcher.init(null);
 		if (this.symbolCacheMap1.containsKey(key)) {
 			return this.symbolCacheMap1.get(key);
@@ -270,6 +270,25 @@ public class FunctorLookup {
 			Field f = c.getField(name);
 			if (Lang.isStatic(f)) {
 				Functor ff = new Functor(Syntax.Getter, f);
+				this.symbolCacheMap1.put(key, ff);
+				return ff;
+			}
+		} catch (NoSuchFieldException | SecurityException e) {
+		}
+		this.symbolCacheMap1.put(key, null);
+		return null;
+	}
+
+	public final Functor getStaticSetter(TypeMatcher matcher, Class<?> c, String name) {
+		String key = c.getName() + ":>" + name;
+		matcher.init(null);
+		if (this.symbolCacheMap1.containsKey(key)) {
+			return this.symbolCacheMap1.get(key);
+		}
+		try {
+			Field f = c.getField(name);
+			if (Lang.isStatic(f)) {
+				Functor ff = new Functor(Syntax.Setter, f);
 				this.symbolCacheMap1.put(key, ff);
 				return ff;
 			}

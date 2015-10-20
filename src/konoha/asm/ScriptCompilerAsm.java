@@ -1203,9 +1203,8 @@ public class ScriptCompilerAsm extends TreeVisitor2<SyntaxTreeAsmVisitor> implem
 		@Override
 		public void acceptAsm(TypedTree node) {
 			Class<?> c = node.getClassType();
-			Class<?> elemClass = TypeSystem.getArrayElementClass(c);
+			Class<?> elemClass = Lang.getArrayElementClass(c);
 			if (Lang.isNativeArray(c)) {
-				System.out.println("native array: " + elemClass);
 				pushArray(elemClass, node);
 			} else {
 				mBuilder.newInstance(Type.getType(c));
@@ -1229,14 +1228,14 @@ public class ScriptCompilerAsm extends TreeVisitor2<SyntaxTreeAsmVisitor> implem
 		}
 	}
 
-	public class List extends Undefined {
-		@Override
-		public void acceptAsm(TypedTree node) {
-			for (TypedTree element : node) {
-				visit(element);
-			}
-		}
-	}
+	// public class List extends Undefined {
+	// @Override
+	// public void acceptAsm(TypedTree node) {
+	// for (TypedTree element : node) {
+	// visit(element);
+	// }
+	// }
+	// }
 
 	// public class Interpolation extends Undefined {
 	// @Override

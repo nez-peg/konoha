@@ -1,5 +1,6 @@
 package konoha.script;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 
@@ -67,28 +68,6 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 
 	public void typed(TypedTree node, Type c) {
 		node.setType(c);
-	}
-
-	/* type */
-
-	private Type[] typeArguments(TypedTree params) {
-		if (params.size() == 0) {
-			return emptyTypes;
-		}
-		Type[] types = new Type[params.size()];
-		for (int i = 0; i < params.size(); i++) {
-			types[i] = visit(params.get(i));
-		}
-		return types;
-	}
-
-	private Type[] typeArguments(Type recvType, TypedTree params) {
-		Type[] types = new Type[params.size() + 1];
-		types[0] = recvType;
-		for (int i = 0; i < params.size(); i++) {
-			types[i + 1] = visit(params.get(i));
-		}
-		return types;
 	}
 
 	/* TopLevel */
@@ -634,16 +613,10 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 		checkAssignable(leftnode);
 		Type rightType = visit(node.get(_right));
 		if (leftnode.is(_Indexer)) {
-			// if (leftnode.is(_Indexer)) {
-			// return typeSetIndexer(node, //
-			// node.get(_left).get(_recv), //
-			// node.get(_left).get(_param), //
-			// node.get(_right));
-			// }
-			// return typeAssignIndexer(node);
+			return typeSetIndexer(node, node.get(_left), node.get(_right));
 		}
 		if (leftnode.is(_Field)) {
-			// return typeAssignField(node);
+			return typeSetField(node, node.get(_left));
 		}
 		assert (leftnode.is(_Name));
 		String name = node.getText(_left, "");
@@ -712,48 +685,6 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 		throw error(node.get(_type), Message.UndefinedCast__, name(inner), name(t));
 	}
 
-	// public Type[] typeList(TypedTree node) {
-	// Type[] args = new Type[node.size()];
-	// for (int i = 0; i < node.size(); i++) {
-	// args[i] = type(node.get(i));
-	// }
-	// return args;
-	// }
-
-	public class _Field extends Undefined {
-		@Override
-		public Type acceptType(TypedTree node) {
-			return typeField(node);
-		}
-	}
-
-	private Type typeField(TypedTree node) {
-		if (isStaticClassName(node)) {
-			return typeStaticField(node);
-		}
-		Type recvType = visit(node.get(_recv));
-		String name = node.getText(_name, "");
-		Functor f = typeSystem.getGetter(methodMatcher, recvType, name);
-		if (f != null) {
-			return found(node, f, methodMatcher, node.get(_recv));
-		}
-		// if (typeSystem.isDynamic(recvClass)) {
-		// return node.setInterface(Hint.StaticInvocation2,
-		// KonohaRuntime.Object_getField(), null);
-		// }
-		throw error(node.get(_name), Message.UndefinedField__, name(recvType), name);
-	}
-
-	private Type typeStaticField(TypedTree node) {
-		Class<?> recvClass = this.resolveClass(node.get(_recv), null);
-		String name = node.getText(_name, "");
-		Functor f = typeSystem.getStaticGetter(methodMatcher, recvClass, name);
-		if (f != null) {
-			return found(node, f, methodMatcher, node.get(_recv));
-		}
-		throw error(node.get(_name), Message.UndefinedField__, name(recvClass), name);
-	}
-
 	public class Apply extends Undefined {
 		@Override
 		public Type acceptType(TypedTree node) {
@@ -779,21 +710,6 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 		return unfound(node, unmatched, Message.Function_, name);
 	}
 
-	// private boolean isRecursiveCall(TypedTree node, String name) {
-	// if (inFunction() && name.equals(function.getName())) {
-	// Type[] paramTypes = function.getParameterTypes();
-	// if (accept(paramTypes, node.get(_param))) {
-	// Type returnType = function.getReturnType();
-	// if (returnType == null) {
-	// throw error(node, Message.UndefinedReturnType_, name);
-	// }
-	// node.setHint(Hint.RecursiveApply, returnType);
-	// return true;
-	// }
-	// }
-	// return false;
-	// }
-	//
 	// private Type typeFuncApply(TypedTree node, Type func_t, Type[] params_t,
 	// TypedTree params) {
 	// if (typeSystem.isStaticFuncType(func_t)) {
@@ -1183,6 +1099,98 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 		}
 	}
 
+	public class _Field extends Undefined {
+		@Override
+		public Type acceptType(TypedTree node) {
+			return typeField(node);
+		}
+	}
+
+	private Type typeField(TypedTree node) {
+		if (isStaticClassName(node)) {
+			return typeStaticField(node);
+		}
+		Type recvType = visit(node.get(_recv));
+		String name = node.getText(_name, "");
+		Functor f = typeSystem.getGetter(methodMatcher, recvType, name);
+		if (f != null) {
+			if (isStaticField(f)) {
+				node.removeSubtree();
+				return found(node, f, methodMatcher);
+			}
+			return found(node, f, methodMatcher, node.get(_recv));
+		}
+		if (typeSystem.isDynamic(recvType)) {
+			Debug.TODO("Indy");
+		}
+		throw error(node.get(_name), Message.UndefinedField__, name(recvType), name);
+	}
+
+	private Type typeSetField(TypedTree node, TypedTree field) {
+		if (isStaticClassName(field)) {
+			return typeSetStaticField(node, field);
+		}
+		Type recvType = visit(field.get(_recv));
+		String name = field.getText(_name, "");
+		Functor f = typeSystem.getSetter(methodMatcher, recvType, name);
+		if (f != null) {
+			if (isReadOnlyField(f)) {
+				throw error(field.get(_name), Message.ReadOnly);
+			}
+			if (isStaticField(f)) {
+				enforceType(f.get(0), node, _right);
+				return found(node, f, methodMatcher, node.get(_right));
+			}
+			enforceType(f.get(1), node, _right);
+			return found(node, f, methodMatcher, field.get(_recv), node.get(_right));
+		}
+		if (typeSystem.isDynamic(recvType)) {
+			Debug.TODO("Indy");
+		}
+		throw error(field.get(_name), Message.UndefinedField__, name(recvType), name);
+	}
+
+	private boolean isStaticField(Functor f) {
+		if (f.ref instanceof Field) {
+			return Lang.isStatic((Field) f.ref);
+		}
+		return false;
+	}
+
+	private boolean isReadOnlyField(Functor f) {
+		if (f.ref instanceof Field) {
+			return Lang.isFinal((Field) f.ref);
+		}
+		return false;
+	}
+
+	private Type typeStaticField(TypedTree node) {
+		Class<?> recvClass = this.resolveClass(node.get(_recv), null);
+		String name = node.getText(_name, "");
+		Functor f = typeSystem.getStaticGetter(methodMatcher, recvClass, name);
+		// System.out.println("get f" + f);
+		if (f != null) {
+			node.removeSubtree();
+			return found(node, f, methodMatcher);
+		}
+		throw error(node.get(_name), Message.UndefinedField__, name(recvClass), name);
+	}
+
+	private Type typeSetStaticField(TypedTree node, TypedTree field) {
+		Class<?> recvClass = this.resolveClass(field.get(_recv), null);
+		String name = field.getText(_name, "");
+		Functor f = typeSystem.getStaticSetter(methodMatcher, recvClass, name);
+		// System.out.println("set f" + f);
+		if (f != null) {
+			if (isReadOnlyField(f)) {
+				throw error(field.get(_name), Message.ReadOnly);
+			}
+			enforceType(f.get(0), node, _right);
+			return found(node, f, methodMatcher, node.get(_right));
+		}
+		throw error(field.get(_name), Message.UndefinedField__, name(recvClass), name);
+	}
+
 	public class MethodApply extends Undefined {
 		@Override
 		public Type acceptType(TypedTree node) {
@@ -1238,43 +1246,37 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 		return unfound(node, unmatched, Message.Method__, name(staticClass), name);
 	}
 
-	public Type typeIndexer(TypedTree node) {
-		Type recvType = visit(node.get(_recv));
-		Type[] a = typeArguments(recvType, node.get(_param));
-		Functor f = typeSystem.getMethod(methodMatcher, recvType, "get", a);
+	public class Indexer extends Undefined {
+		@Override
+		public Type acceptType(TypedTree indexer) {
+			Type recvType = visit(indexer.get(_recv));
+			Type[] a = typeArguments(recvType, indexer.get(_param));
+			Functor f = typeSystem.getMethod(methodMatcher, recvType, "get", a);
+			if (f != null) {
+				return found(indexer, f, methodMatcher, indexer.get(_recv), indexer.get(_param));
+			}
+			if (typeSystem.isDynamic(recvType)) {
+				Debug.TODO("Indy");
+			}
+			Functor[] unmatched = typeSystem.getMethods(recvType, "get");
+			return unfound(indexer, unmatched, Message.Indexer_, name(recvType));
+		}
+	}
+
+	private Type typeSetIndexer(TypedTree node, TypedTree indexer, TypedTree expr) {
+		Type recvType = visit(indexer.get(_recv));
+		Type exprType = visit(indexer.get(_expr));
+		Type[] a = typeArguments(recvType, indexer.get(_param), exprType);
+		Functor f = typeSystem.getMethod(methodMatcher, recvType, "set", a);
 		if (f != null) {
-			return found(node, f, methodMatcher, node.get(_recv), node.get(_param));
+			return found(node, f, methodMatcher, indexer.get(_recv), indexer.get(_param), expr);
 		}
 		if (typeSystem.isDynamic(recvType)) {
 			Debug.TODO("Indy");
 		}
-		Functor[] unmatched = typeSystem.getMethods(recvType, "get");
-		return unfound(node, unmatched, Message.Indexer_, name(recvType));
+		Functor[] unmatched = typeSystem.getMethods(recvType, "set");
+		return unfound(indexer, unmatched, Message.Indexer_, name(recvType));
 	}
-
-	//
-	// private Type typeSetIndexer(TypedTree node, TypedTree recv, TypedTree
-	// param, TypedTree expr) {
-	// param.makeFlattenedList(param, expr);
-	// node.make(_recv, recv, _param, param);
-	//
-	// Type recvType = visit(node.get(_recv));
-	// typeArguments(node.get(_param));
-	// TypeMatcher2 methodMatcher = initTypeMatcher(recvType);
-	// Functor inf = resolveObjectMethod(methodMatcher, recvType, "get",
-	// node.get(_param));
-	// if (inf != null) {
-	// return node.setInterface(Hint.MethodApply2, inf, methodMatcher);
-	// }
-	// if (typeSystem.isDynamic(recvType)) {
-	// TODO("Dynamic Indexer");
-	// // node.makeFlattenedList(node.get(_recv), node.get(_param));
-	// // return node.setMethod(Hint.StaticInvocation,
-	// // typeSystem.ObjectSetIndexer, null);
-	// }
-	// return this.unfound(node, methodMatcher, Message.Indexer_,
-	// name(recvType));
-	// }
 
 	/* array */
 
@@ -1500,6 +1502,38 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 
 	private TypeMatcher methodMatcher = new TypeMatcher();
 	private TypeMatcher castMatcher = new TypeMatcher();
+
+	/* type */
+
+	private Type[] typeArguments(TypedTree params) {
+		if (params.size() == 0) {
+			return emptyTypes;
+		}
+		Type[] types = new Type[params.size()];
+		for (int i = 0; i < params.size(); i++) {
+			types[i] = visit(params.get(i));
+		}
+		return types;
+	}
+
+	private Type[] typeArguments(Type recvType, TypedTree params) {
+		Type[] types = new Type[params.size() + 1];
+		types[0] = recvType;
+		for (int i = 0; i < params.size(); i++) {
+			types[i + 1] = visit(params.get(i));
+		}
+		return types;
+	}
+
+	private Type[] typeArguments(Type recvType, TypedTree params, Type exprType) {
+		Type[] types = new Type[params.size() + 2];
+		types[0] = recvType;
+		for (int i = 0; i < params.size(); i++) {
+			types[i + 1] = visit(params.get(i));
+		}
+		types[types.length - 1] = exprType;
+		return types;
+	}
 
 	private Type found(TypedTree node, Functor f, TypeMatcher matcher, TypedTree... sub) {
 		node.makeFlattenedList(sub);

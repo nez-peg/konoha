@@ -127,6 +127,10 @@ public class Lang {
 		return Modifier.isStatic(mod) && Modifier.isPublic(mod);
 	}
 
+	public static boolean isFinal(Field f) {
+		return Modifier.isFinal(f.getModifiers());
+	}
+
 	public final static boolean isCastMethod(Method m) {
 		Class<?>[] p = m.getParameterTypes();
 		if (p.length != 1) {
