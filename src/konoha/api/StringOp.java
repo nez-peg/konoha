@@ -43,22 +43,34 @@ public class StringOp {
 
 	@Method
 	public final static boolean lt(String a, String b) {
-		return a.compareTo(b) < 0;
+		if (a != null) {
+			return a.compareTo(b) < 0;
+		}
+		return b != null;
 	}
 
 	@Method
 	public final static boolean gt(String a, String b) {
-		return a.compareTo(b) > 0;
+		if (a != null) {
+			return a.compareTo(b) > 0;
+		}
+		return false;
 	}
 
 	@Method
 	public final static boolean lte(String a, String b) {
-		return a.compareTo(b) <= 0;
+		if (a != null) {
+			return a.compareTo(b) <= 0;
+		}
+		return true;
 	}
 
 	@Method
 	public final static boolean gte(String a, String b) {
-		return a.compareTo(b) >= 0;
+		if (a != null) {
+			return a.compareTo(b) >= 0;
+		}
+		return b == null;
 	}
 
 	@Conversion
