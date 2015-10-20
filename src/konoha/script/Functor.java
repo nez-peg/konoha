@@ -156,9 +156,10 @@ public class Functor {
 		if (this.size() == paramTypes.length) {
 			for (int i = 0; i < paramTypes.length; i++) {
 				if (paramTypes[i] != this.get(i)) {
-					return true;
+					return false;
 				}
 			}
+			return true;
 		}
 		return false;
 	}
