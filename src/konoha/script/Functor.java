@@ -160,7 +160,7 @@ public class Functor {
 				}
 			}
 		}
-		return true;
+		return false;
 	}
 
 	private Object evalIndy(Object... args) throws Throwable {
