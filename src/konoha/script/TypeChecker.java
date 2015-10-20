@@ -1573,7 +1573,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 			StringBuilder sb = new StringBuilder();
 			for (Functor f : unmatched) {
 				sb.append(" ");
-				sb.append(f.toString());
+				sb.append(f.toBetterString());
 			}
 			mismatched = sb.toString();
 		}

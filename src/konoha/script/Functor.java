@@ -200,14 +200,30 @@ public class Functor {
 		return null;
 	}
 
-	@Override
-	public String toString() {
+	public String toBetterString() {
+		if (ref instanceof Method) {
+			Method m = (Method) ref;
+			if (syntax == Syntax.Operator) {
+				if (size() == 2) {
+					return toBinary(get(0), m.getName(), get(1));
+				}
+				return toUnary(m.getName(), get(0));
+			}
+		}
 		return ref.toString();
 	}
 
-	public static Functor newPrototypeStaticMethod(String cname, Type returnType, String name, Type[] paramTypes) {
-		// TODO Auto-generated method stub
-		return null;
+	private String toUnary(String name, Type type) {
+		return OperatorNames.name(name) + " " + Lang.name(type);
+	}
+
+	private String toBinary(Type type, String name, Type type2) {
+		return Lang.name(type) + " " + OperatorNames.name(name) + " " + Lang.name(type2);
+	}
+
+	@Override
+	public String toString() {
+		return ref.toString();
 	}
 
 }

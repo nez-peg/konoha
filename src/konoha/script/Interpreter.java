@@ -263,7 +263,7 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 			}
 			Class<?> atype = Lang.getArrayElementClass(node.getType());
 			if (atype == int.class) {
-				return new ArrayInt<Object>((int[]) a);
+				return new ArrayInt((int[]) a);
 			}
 			return new Array<Object>((Object[]) a);
 		}

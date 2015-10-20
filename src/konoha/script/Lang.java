@@ -163,8 +163,18 @@ public class Lang {
 		return false;
 	}
 
-	public final static boolean isExtraMethod(Method m) {
+	public final static boolean isExtraMethod2(Method m) {
 		Annotation a = m.getAnnotation(konoha.Method.class);
+		return a != null;
+	}
+
+	public final static boolean isOperator(Method m) {
+		Annotation a = m.getAnnotation(konoha.Operator.class);
+		return a != null;
+	}
+
+	public final static boolean isConst(Method m) {
+		Annotation a = m.getAnnotation(konoha.Const.class);
 		return a != null;
 	}
 

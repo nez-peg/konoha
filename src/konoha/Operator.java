@@ -10,5 +10,5 @@ import java.lang.annotation.Target;
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target(value = { METHOD })
-public @interface Setter {
+public @interface Operator {
 }

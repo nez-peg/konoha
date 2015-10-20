@@ -87,10 +87,10 @@ public class FunctorLookup {
 		return m == null ? empty : m;
 	}
 
-	private void addClassMethod(Method method) {
+	private void addClassMethod(Syntax syntax, Method method) {
 		Class<?> c = method.getParameterTypes()[0];
 		Functor[] list = methodClassMap.get(c);
-		Functor f = new Functor(Syntax.Method, method);
+		Functor f = new Functor(syntax, method);
 		if (list != null) {
 			Functor[] newlist = new Functor[list.length + 1];
 			System.arraycopy(list, 0, newlist, 0, list.length);
@@ -117,8 +117,12 @@ public class FunctorLookup {
 					addConvertMethod(m);
 					continue;
 				}
-				if (Lang.isExtraMethod(m)) {
-					addClassMethod(m);
+				if (Lang.isOperator(m)) {
+					addClassMethod(Syntax.Operator, m);
+					continue;
+				}
+				if (Lang.isExtraMethod2(m)) {
+					addClassMethod(Syntax.Method, m);
 					continue;
 				}
 				addStaticMethod(m);

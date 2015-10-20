@@ -1,6 +1,6 @@
 package konoha;
 
-public class ArrayInt<T> implements KonohaArray {
+public class ArrayInt implements KonohaArray {
 	private int currentSize;
 	public int[] ArrayValues;
 
@@ -82,13 +82,12 @@ public class ArrayInt<T> implements KonohaArray {
 	}
 
 	public final int[] compactArray() {
-		if (this.currentSize == this.ArrayValues.length) {
-			return this.ArrayValues;
-		} else {
+		if (this.currentSize != this.ArrayValues.length) {
 			int[] newValues = new int[this.currentSize];
 			System.arraycopy(this.ArrayValues, 0, newValues, 0, this.currentSize);
-			return newValues;
+			this.ArrayValues = newValues;
 		}
+		return this.ArrayValues;
 	}
 
 	public int remove(int index) {

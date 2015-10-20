@@ -101,15 +101,14 @@ public class Array<T> extends AbstractList<T> implements KonohaArray {
 		return this.ArrayValues[this.currentSize];
 	}
 
+	@SuppressWarnings("unchecked")
 	public final T[] compactArray() {
-		if (this.currentSize == this.ArrayValues.length) {
-			return this.ArrayValues;
-		} else {
-			@SuppressWarnings("unchecked")
+		if (this.currentSize != this.ArrayValues.length) {
 			T[] newValues = (T[]) java.lang.reflect.Array.newInstance(this.getElementType(), this.currentSize);
 			System.arraycopy(this.ArrayValues, 0, newValues, 0, this.currentSize);
-			return newValues;
+			this.ArrayValues = newValues;
 		}
+		return this.ArrayValues;
 	}
 
 	//
