@@ -675,8 +675,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 		}
 		if (f != null) {
 			node.makeFlattenedList(node.get(_expr));
-			node.setFunctor(f);
-			return req;
+			return functor(node, f);
 		}
 		if (exp.isAssignableFrom(req)) { // downcast
 			node.setTag(_DownCast);

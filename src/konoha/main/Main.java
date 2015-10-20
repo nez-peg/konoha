@@ -13,6 +13,7 @@ import konoha.script.EmptyResult;
 import konoha.script.ScriptContext;
 import konoha.script.ScriptRuntimeException;
 import nez.main.CommandContext;
+import nez.util.StringUtils;
 
 public class Main {
 	public final static void main(String[] args) {
@@ -88,6 +89,9 @@ public class Main {
 					ConsoleUtils.println("<<<");
 					ConsoleUtils.end();
 					ConsoleUtils.bold();
+					if (result instanceof String) {
+						result = StringUtils.quoteString('"', (String) result, '"');
+					}
 					ConsoleUtils.println(result);
 					ConsoleUtils.end();
 				}
