@@ -292,7 +292,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<SyntaxTreeAsmVisitor> implem
 	}
 
 	public Class<?> closeClass() {
-		// typeSystem.setVerboseMode(true);
+		// cLoader.enabledDump = true;
 		Class<?> c = cLoader.definedAndLoadClass(this.cBuilder.getQualifiedClassName(), cBuilder.toByteArray());
 		this.cBuilder = null;
 		return c;
@@ -731,6 +731,75 @@ public class ScriptCompilerAsm extends TreeVisitor2<SyntaxTreeAsmVisitor> implem
 			}
 		}
 
+		class Case implements Comparable<Case> {
+
+			private int index;
+			private int key;
+			private Object value;
+			private Label evalLabel;
+			private Label checklabel; // for StringSwitch
+
+			public Case(int index, int key) {
+				this.index = index;
+				this.key = key;
+				this.value = null;
+			}
+
+			public Case(int index, int key, Object value) {
+				this.index = index;
+				this.key = key;
+				this.value = value;
+			}
+
+			public int getIndex() {
+				return index;
+			}
+
+			public int getKey() {
+				return key;
+			}
+
+			public Object getValue() {
+				return value;
+			}
+
+			public Label getEvalLabel() {
+				return evalLabel;
+			}
+
+			public void setEvalLabel(Label evalLabel) {
+				this.evalLabel = evalLabel;
+			}
+
+			public Label getChecklabel() {
+				return checklabel;
+			}
+
+			public void setChecklabel(Label checklabel) {
+				this.checklabel = checklabel;
+			}
+
+			@Override
+			public int compareTo(Case target) {
+				int tkey = target.getKey();
+				int res = ((Integer) this.key).compareTo(tkey);
+				if (res == 0) {
+					return ((Integer) this.index).compareTo(target.getIndex());
+				}
+				return res;
+			}
+
+			@Override
+			public String toString() {
+				String out = "";
+				out += "Key: " + this.key + "\n";
+				out += "Index: " + this.index + "\n";
+				out += "Value: " + this.value + "\n";
+				return out;
+			}
+
+		}
+
 		// private boolean isTableSwitch(int[] keys) {
 		// int min = keys[0];
 		// int max = keys[0];
@@ -773,7 +842,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<SyntaxTreeAsmVisitor> implem
 			return result;
 		}
 
-		private SwitchCase[] getSwitchKeys(TypedTree node) {
+		private Case[] getSwitchKeys(TypedTree node) {
 			TypedTree body = node.get(_body);
 			int size;
 			if (has(_SwitchDefault, body)) {
@@ -781,11 +850,11 @@ public class ScriptCompilerAsm extends TreeVisitor2<SyntaxTreeAsmVisitor> implem
 			} else {
 				size = body.size();
 			}
-			SwitchCase keys[] = new SwitchCase[size];
+			Case keys[] = new Case[size];
 			int j = 0;
 			for (TypedTree caseNode : body) {
 				if (caseNode.is(_SwitchCase)) {
-					keys[j] = new SwitchCase(j, evalKey(caseNode.get(_cond)), caseNode.get(_cond).getValue());
+					keys[j] = new Case(j, evalKey(caseNode.get(_cond)), caseNode.get(_cond).getValue());
 					j++;
 				}
 			}
@@ -810,7 +879,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<SyntaxTreeAsmVisitor> implem
 				labels[i] = mBuilder.newLabel();
 			}
 			// keys must be ascending order
-			SwitchCase cases[] = getSwitchKeys(node);
+			Case cases[] = getSwitchKeys(node);
 			Arrays.sort(cases);
 			int[] keys = new int[size];
 			int[] indexes = new int[size];
@@ -864,7 +933,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<SyntaxTreeAsmVisitor> implem
 			Label dfltLabel = mBuilder.newLabel();
 
 			// keys must be ascending order
-			SwitchCase cases[] = getSwitchKeys(node);
+			Case cases[] = getSwitchKeys(node);
 			Arrays.sort(cases);
 			int[] indexes = new int[size];
 			for (int i = 0; i < size; i++) {
@@ -1149,39 +1218,21 @@ public class ScriptCompilerAsm extends TreeVisitor2<SyntaxTreeAsmVisitor> implem
 		}
 	}
 
-	// private void evalPrefixInc(TypedTree node, int amount) {
-	// String name = node.getText(_name, null);
-	// VarEntry var = this.mBuilder.getVar(name);
-	// if (var != null) {
-	// this.mBuilder.callIinc(var, amount);
-	// this.mBuilder.loadFromVar(var);
-	// } else {
-	// throw new RuntimeException("undefined variable " + name);
-	// }
-	// }
-
-	private void evalSuffixInc(TypedTree node, int amount) {
-		String name = node.getText(_expr, null);
-		VarEntry var = mBuilder.getVar(name);
-		if (var != null) {
-			mBuilder.loadFromVar(var);
-			this.mBuilder.callIinc(var, amount);
-		} else {
-			throw new RuntimeException("undefined variable " + name);
-		}
-	}
-
 	public class Inc extends Undefined {
 		@Override
 		public void acceptAsm(TypedTree node) {
-			evalSuffixInc(node, 1);
+			// evalSuffixInc(node, 1);
+			visit(node.get(_expr));
+			visitStatementAsBlock(node.get(_body));
 		}
 	}
 
 	public class Dec extends Undefined {
 		@Override
 		public void acceptAsm(TypedTree node) {
-			evalSuffixInc(node, -1);
+			// evalSuffixInc(node, -1);
+			visit(node.get(_expr));
+			visitStatementAsBlock(node.get(_body));
 		}
 	}
 
