@@ -90,9 +90,20 @@ public class ScriptCompilerAsm extends TreeVisitor2<SyntaxTreeAsmVisitor> implem
 					this.mBuilder.getField(owner, name, fieldType);
 				}
 			} else {
+				java.lang.reflect.Type ret = f.getReturnType();
 				if (Lang.isStatic(fld)) {
+					if (ret == long.class || ret == double.class) {
+						this.mBuilder.dup2();
+					} else if (ret != void.class) {
+						this.mBuilder.dup();
+					}
 					this.mBuilder.putStatic(owner, name, fieldType);
 				} else {
+					if (ret == long.class || ret == double.class) {
+						this.mBuilder.dup2X1();
+					} else if (ret != void.class) {
+						this.mBuilder.dupX1();
+					}
 					this.mBuilder.putField(owner, name, fieldType);
 				}
 			}

@@ -82,7 +82,7 @@ public class Functor {
 			return ((Method) ref).getGenericReturnType();
 		}
 		if (ref instanceof Field) {
-			return syntax == Syntax.Getter ? ((Field) ref).getGenericType() : void.class;
+			return syntax == Syntax.Getter ? ((Field) ref).getGenericType() : ((Field) ref).getGenericType();
 		}
 		if (ref instanceof Constructor<?>) {
 			return ((Constructor<?>) ref).getDeclaringClass();
@@ -171,8 +171,13 @@ public class Functor {
 			return mh.invokeWithArguments(args);
 		}
 		if (ref instanceof Field) {
-			mh = syntax == Syntax.Getter ? lookup.unreflectGetter((Field) ref) : lookup.unreflectSetter((Field) ref);
-			return mh.invokeWithArguments(args);
+			if (syntax == Syntax.Getter) {
+				mh = lookup.unreflectGetter((Field) ref);
+			} else {
+				mh = lookup.unreflectSetter((Field) ref);
+				mh.invokeWithArguments(args);
+				return args[args.length - 1];
+			}
 		}
 		if (ref instanceof Constructor<?>) {
 			mh = lookup.unreflectConstructor((Constructor<?>) ref);
@@ -186,7 +191,7 @@ public class Functor {
 	public final Object eval(TypedTree node, Object... args) {
 		try {
 			Object v = evalIndy(args);
-			return this.getReturnType() == void.class ? Interpreter.empty : v;
+			return node.getType() == void.class ? Interpreter.empty : v;
 		} catch (Throwable e) {
 			if (e instanceof Error) {
 				throw (Error) e;
