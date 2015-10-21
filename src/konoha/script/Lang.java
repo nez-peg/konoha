@@ -193,7 +193,7 @@ public class Lang {
 		if (t == String.class || t2 == String.class) {
 			return String.class;
 		}
-		return unifyAdd(t, t2);
+		return unifyNum(t, t2);
 	}
 
 	public final static Type unifyNum(Type t, Type t2) {

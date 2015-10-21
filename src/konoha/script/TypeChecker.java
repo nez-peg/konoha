@@ -748,13 +748,13 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 		Type[] a = { left };
 		Functor f = this.typeSystem.getMethod(methodMatcher, left, name, a);
 		if (f != null) {
-			if (ret == null) {
-				ret = left;
-			}
 			return found(node, f, methodMatcher);
 		}
 		if (typeSystem.isDynamic(left)) {
-			Debug.TODO("Indy");
+			if (ret == null) {
+				ret = left;
+			}
+			return makeIndy(node, KonohaFunctor.getIndyMethodFunctor(), name, a, node.get(_expr));
 		}
 		Functor[] fs = this.typeSystem.getMethods(left, name);
 		return unfound(node, fs, Message.Unary__, OperatorNames.name(name), name(left));
@@ -772,7 +772,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 			if (ret == null) {
 				ret = left;
 			}
-			Debug.TODO("Indy");
+			return makeIndy(node, KonohaFunctor.getIndyMethodFunctor(), name, a, node.get(_left), node.get(_right));
 		}
 		Functor[] fs = this.typeSystem.getMethods(left, name);
 		return unfound(node, fs, Message.Binary___, name(left), OperatorNames.name(name), name(right));
@@ -1252,6 +1252,9 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 				}
 				return found(node, f, methodMatcher, node.get(_recv), node.get(_param));
 			}
+			if (typeSystem.isDynamic(recvType)) {
+				return makeIndy(node, KonohaFunctor.getIndyMethodFunctor(), name, a, node.get(_recv), node.get(_param));
+			}
 			Functor[] unmatched = typeSystem.getMethods(recvType, name);
 			return unfound(node, unmatched, Message.Method__, name(recvType), name);
 		}
@@ -1580,8 +1583,8 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 		return types;
 	}
 
-	private Type found(TypedTree node, Functor f, TypeMatcher matcher, TypedTree... sub) {
-		node.makeFlattenedList(sub);
+	private Type found(TypedTree node, Functor f, TypeMatcher matcher, TypedTree... trees) {
+		node.makeFlattenedList(trees);
 		return found(node, f, matcher);
 	}
 
@@ -1593,6 +1596,23 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 		node.setTag(_Functor);
 		node.setValue(f);
 		return returnType;
+	}
+
+	private Type makeIndy(TypedTree node, Functor f, String name, Type[] a, TypedTree... trees) {
+		TypedTree tlookup = node.newInstance(_Name, 0, "__lookup__");
+		visit(tlookup); // typed
+		TypedTree tname = node.newConst(String.class, name);
+		TypedTree tparam = node.newConst(int.class, typeSystem.getIndyParameterTypes(a));
+		TypedTree targs = node.newInstance(_Array, 0, null);
+		targs.makeFlattenedList(trees);
+		for (int i = 0; i < targs.size(); i++) {
+			enforceType(Object.class, targs, i);
+		}
+		targs.setType(Object[].class);
+		node.setTag(_Functor);
+		node.makeFlattenedList(tlookup, tname, tparam, targs);
+		node.setValue(f);
+		return Object.class;
 	}
 
 	private Type functor(TypedTree node, Functor f) {

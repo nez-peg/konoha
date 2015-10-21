@@ -94,17 +94,15 @@ public class TypedTree extends Tree<TypedTree> {
 
 	/* Tree Manipulation */
 
-	public void makeFlattenedList(TypedTree... args) {
+	public void makeFlattenedList(TypedTree... trees) {
 		UList<TypedTree> l = new UList<TypedTree>(new TypedTree[4]);
-		for (TypedTree t : args) {
-			if (t.size() == 0) {
-				if (!t.is(CommonSymbols._List)) {
-					l.add(t);
-				}
-			} else {
+		for (TypedTree t : trees) {
+			if (t.is(CommonSymbols._List)) {
 				for (TypedTree sub : t) {
 					l.add(sub);
 				}
+			} else {
+				l.add(t);
 			}
 		}
 		this.subTree = l.compactArray();

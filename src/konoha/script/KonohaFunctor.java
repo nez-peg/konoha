@@ -61,9 +61,11 @@ public abstract class KonohaFunctor {
 
 	private static TypeMatcher threadUnsafeMatcher = new TypeMatcher();
 
-	public final static Object indyMethod(TypeSystem ts, String name, int paramId, Object... args) throws NoSuchMethodException {
+	public final static Object indyMethod(TypeSystem ts, String name, int paramId, Object[] args) throws NoSuchMethodException {
 		Type[] a = ts.getIndyParameterTypes(paramId);
+		System.out.printf("name %s %s %d\n", name, a, paramId);
 		a = updateTypes(a, args);
+		System.out.printf("name %s %s %d\n", name, a, paramId);
 		Functor f = null;
 		synchronized (threadUnsafeMatcher) {
 			threadUnsafeMatcher.init(a[0]);
@@ -75,7 +77,7 @@ public abstract class KonohaFunctor {
 			// Class<?> c = Lang.toClassType(f.get(i));
 			// args[i] = ts.cast(c, args[i]);
 			// }
-			return f.eval(null, args);
+			return f.eval(args);
 		}
 		throw new NoSuchMethodException(String.format("%s::%s", Lang.name(a[0]), name));
 
@@ -84,6 +86,7 @@ public abstract class KonohaFunctor {
 	private static Type[] updateTypes(Type[] a, Object[] args) {
 		int start = args.length;
 		for (int i = 0; i < args.length; i++) {
+			System.out.printf("a[%d] %s %s\n", i, a[i], args[i]);
 			if (args[i] == null) {
 				continue;
 			}
