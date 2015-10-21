@@ -46,6 +46,9 @@ public class TypeSystem extends FunctorLookup implements CommonSymbols {
 		this.setType("Array", konoha.Array.class);
 		this.setType("Dict", konoha.Dict.class);
 		this.setType("Func", Function.class);
+		this.setType("RuntimeException", RuntimeException.class);
+		this.setType("NullPointerException", NullPointerException.class);
+		this.setType("ArithmeticException", ArithmeticException.class);
 	}
 
 	public void init(ScriptCompiler compl) {

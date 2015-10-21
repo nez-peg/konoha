@@ -11,6 +11,7 @@ import jline.console.completer.Completer;
 import konoha.message.Message;
 import konoha.script.EmptyResult;
 import konoha.script.ScriptContext;
+import konoha.script.ScriptContextError;
 import konoha.script.ScriptRuntimeException;
 import nez.main.CommandContext;
 import nez.util.StringUtils;
@@ -27,14 +28,27 @@ public class Main {
 		}
 	}
 
+	public static ScriptContextError expected = ScriptContextError.NoError;
+
 	public static void exec(CommandContext config) throws IOException {
 		if (config.isUnspecifiedGrammarFilePath()) {
 			config.setGrammarFilePath("konoha.nez");
 		}
 		ScriptContext sc = new ScriptContext(config.newParser());
 		if (config.hasInput()) {
-			while (config.hasInput()) {
-				sc.eval(config.nextInput());
+			try {
+				while (config.hasInput()) {
+					sc.eval(config.nextInput());
+				}
+			} catch (AssertionError e) {
+				e.printStackTrace();
+				sc.found(ScriptContextError.AssertonError);
+			} catch (RuntimeException e) {
+				e.printStackTrace();
+				sc.found(ScriptContextError.RuntimeError);
+			}
+			if (sc.getError() != expected) {
+				ConsoleUtils.exit(1, "expected " + expected + " but " + sc.getError());
 			}
 		} else {
 			show(config);

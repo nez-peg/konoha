@@ -52,6 +52,27 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 		return this.function != null;
 	}
 
+	public TypedTree check(TypedTree node) {
+		try {
+			visit(node);
+			return node;
+		} catch (TypeCheckerException e) {
+			context.found(ScriptContextError.TypeError);
+			return e.getErrorTree();
+		}
+	}
+
+	public TypedTree checkAtTopLevel(TypedTree node) {
+		try {
+			visit(node);
+			return node;
+		} catch (TypeCheckerException e) {
+			context.found(ScriptContextError.TypeError);
+			context.log(e.getMessage());
+			return node;
+		}
+	}
+
 	public Type visit(TypedTree node) {
 		Type c = node.getType();
 		if (c == null) {

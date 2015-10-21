@@ -35,6 +35,12 @@ public class TypedTree extends Tree<TypedTree> {
 		return new TypedTree(tag, this.getSource(), this.getSourcePosition(), 0, size, value);
 	}
 
+	public TypedTree newInstance(Symbol tag, TypedTree... sub) {
+		TypedTree t = new TypedTree(tag, this.getSource(), this.getSourcePosition(), 0, 0, null);
+		t.makeFlattenedList(sub);
+		return t;
+	}
+
 	public TypedTree newConst(Type type, Object value) {
 		TypedTree t = new TypedTree(CommonSymbols._Const, this.getSource(), this.getSourcePosition(), 0, 0, value);
 		t.setConst(type, value);

@@ -39,64 +39,56 @@ public class ScriptContext {
 		return eval(SourceContext.newStringContext(uri, linenum, script));
 	}
 
+	ScriptContextError found = ScriptContextError.NoError;
+
+	public final ScriptContextError getError() {
+		return found;
+	}
+
+	public void found(ScriptContextError e) {
+		found = e;
+	}
+
 	public final Object eval(SourceContext source) {
+		this.found = ScriptContextError.NoError;
 		TypedTree node = (TypedTree) this.parser.parse(source, new TypedTree());
 		if (node == null) {
 			log(source.getErrorMessage("error", Message.SyntaxError.toString()));
+			this.found = ScriptContextError.SyntaxError;
 			return Interpreter.empty; // nothing
 		}
-		if (node.is(CommonSymbols._Source)) {
-			return evalSource(node);
+		if (!node.is(CommonSymbols._Source)) {
+			node = node.newInstance(CommonSymbols._Source, node);
 		}
-		return evalTopLevel(node);
+		return evalSource(node);
 	}
 
 	public boolean enableASTDump = false;
 
-	Object evalSource(TypedTree node) {
+	private Object evalSource(TypedTree node) {
 		Object result = Interpreter.empty;
-		boolean foundError = false;
-		for (TypedTree sub : node) {
+		for (int i = 0; i < node.size(); i++) {
+			TypedTree sub = node.get(i);
 			if (enableASTDump) {
 				ConsoleUtils.println("[Parsed]");
 				ConsoleUtils.println("    ", sub);
 			}
-			try {
-				typechecker.visit(sub);
-				if (enableASTDump) {
-					ConsoleUtils.println("[Typed]");
-					ConsoleUtils.println("    ", sub);
-				}
-				if (!foundError) {
-					result = interpreter.visit(sub);
-					if (sub.getType() == void.class) {
-						result = Interpreter.empty;
-					}
-				}
-			} catch (TypeCheckerException e) {
-				foundError = true;
-				log(e.getMessage());
+			TypedTree typed = typechecker.checkAtTopLevel(sub);
+			if (typed != sub) {
+				node.set(i, typed);
 			}
-		}
-		return foundError ? Interpreter.empty : result;
-	}
-
-	Object evalTopLevel(TypedTree sub) {
-		if (enableASTDump) {
-			ConsoleUtils.println("[Parsed]");
-			ConsoleUtils.println("    ", sub);
-		}
-		try {
-			typechecker.visit(sub);
 			if (enableASTDump) {
 				ConsoleUtils.println("[Typed]");
 				ConsoleUtils.println("    ", sub);
 			}
-			return interpreter.visit(sub);
-		} catch (TypeCheckerException e) {
-			log(e.getMessage());
+			if (found == ScriptContextError.NoError) {
+				result = interpreter.visit(typed);
+				if (typed.getType() == void.class) {
+					result = Interpreter.empty;
+				}
+			}
 		}
-		return Interpreter.empty;
+		return found == ScriptContextError.NoError ? result : Interpreter.empty;
 	}
 
 	public Object get(String name) {
