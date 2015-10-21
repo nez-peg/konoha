@@ -21,6 +21,11 @@ public class IntOp {
 	}
 
 	@Operator
+	public final static String add(int a, String b) {
+		return a + b;
+	}
+
+	@Operator
 	public final static int subtract(int a, int b) {
 		return a - b;
 	}

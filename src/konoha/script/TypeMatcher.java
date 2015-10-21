@@ -72,15 +72,17 @@ public class TypeMatcher {
 				}
 				return true;
 			}
-			Debug.TODO("ParameterizedType %s\n", a.getClass().getName());
+			Debug.TODO("ParameterizedType %p %s\n", p, a.getClass().getName());
 			return false;
 		}
 		if (p instanceof WildcardType) {
-			Debug.TODO("WildcardType %s\n", p.getClass().getName());
-			return false;
+			WildcardType w = (WildcardType) p;
+			// Debug.TODO("WildcardType '%s' %s %s\n", w.getTypeName(), p,
+			// p.getClass().getName());
+			return true;
 		}
 		if (p instanceof GenericArrayType) {
-			Debug.TODO("GenericArrayType %s\n", p.getClass().getName());
+			Debug.TODO("GenericArrayType %s %s\n", p, p.getClass().getName());
 			return false;
 		}
 		Debug.TODO("unknown %s\n", p.getClass().getName());
@@ -114,10 +116,14 @@ public class TypeMatcher {
 			return GenericType.newType((Class<?>) rawtype, params);
 		}
 		if (p instanceof WildcardType) {
-			Debug.TODO("WildcardType %s\n", p.getClass().getName());
+			// WildcardType w = (WildcardType) p;
+			// w.getTypeName();
+			// Debug.TODO("WildcardType '%s' %s %s\n", w.getTypeName(), p,
+			// p.getClass().getName());
+			return Object.class;
 		}
 		if (p instanceof GenericArrayType) {
-			Debug.TODO("GenericArrayType %s\n", p.getClass().getName());
+			Debug.TODO("GenericArrayType %s %s\n", p, p.getClass().getName());
 		}
 		Debug.TODO("unknown %s\n", p.getClass().getName());
 		return unresolved;

@@ -201,24 +201,22 @@ public class Functor {
 	}
 
 	public String toBetterString() {
-		if (ref instanceof Method) {
-			Method m = (Method) ref;
-			if (syntax == Syntax.Operator) {
-				if (size() == 2) {
-					return toBinary(get(0), m.getName(), get(1));
-				}
-				return toUnary(m.getName(), get(0));
+		return toFuncType(0);
+	}
+
+	private String toFuncType(int start) {
+		StringBuilder sb = new StringBuilder();
+		int c = 0;
+		for (int i = start; i < this.size(); i++) {
+			if (c > 0) {
+				sb.append(",");
 			}
+			sb.append(Lang.name(this.get(i)));
+			c++;
 		}
-		return ref.toString();
-	}
-
-	private String toUnary(String name, Type type) {
-		return OperatorNames.name(name) + " " + Lang.name(type);
-	}
-
-	private String toBinary(Type type, String name, Type type2) {
-		return Lang.name(type) + " " + OperatorNames.name(name) + " " + Lang.name(type2);
+		sb.append("->");
+		sb.append(Lang.name(this.getReturnType()));
+		return sb.toString();
 	}
 
 	@Override

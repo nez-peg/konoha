@@ -97,7 +97,7 @@ boolean TestFunc8() {
 		}
 		c = c + 1;
 	}
-	assert(c == 6);
+	assert(c == 5);
 	return true;
 }
 

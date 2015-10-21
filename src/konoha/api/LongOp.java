@@ -19,6 +19,11 @@ public class LongOp {
 	}
 
 	@Method
+	public final static String add(long a, String b) {
+		return a + b;
+	}
+
+	@Method
 	public final static long subtract(long a, long b) {
 		return a - b;
 	}

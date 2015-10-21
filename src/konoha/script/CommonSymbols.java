@@ -40,6 +40,8 @@ public interface CommonSymbols {
 
 	public final static Symbol _Functor = Symbol.tag("Functor");
 	public final static Symbol _Const = Symbol.tag("Const");
+	public final static Symbol _NullCheck = Symbol.tag("NullCheck");
+	public final static Symbol _NonNullCheck = Symbol.tag("NonNullCheck");
 
 	public final static Symbol _Cast = Symbol.tag("Cast");
 	public final static Symbol _UpCast = Symbol.tag("UpCast");

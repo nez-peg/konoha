@@ -20,6 +20,11 @@ public class DoubleOp {
 	}
 
 	@Method
+	public final static String add(double a, String b) {
+		return a + b;
+	}
+
+	@Method
 	public final static double subtract(double a, double b) {
 		return a - b;
 	}

@@ -58,6 +58,11 @@ public class FunctorLookup {
 		return this.getCast(Lang.toClassType(f), Lang.toClassType(t));
 	}
 
+	public final Functor getCast(TypeMatcher matcher, Type f, Type t) {
+		matcher.init(f);
+		return this.getCast(Lang.toClassType(f), Lang.toClassType(t));
+	}
+
 	protected void addCastMethod(Method m) {
 		Class<?> f = m.getParameterTypes()[0];
 		Class<?> t = m.getReturnType();
@@ -413,12 +418,12 @@ public class FunctorLookup {
 					l.add(f);
 				}
 			}
-			cur = cur.getSuperclass();
-		}
-		for (Method m : c.getDeclaredMethods()) {
-			if (Lang.isPublic(m) && name.equals(m.getName())) {
-				l.add(new Functor(Syntax.Method, m));
+			for (Method m : cur.getDeclaredMethods()) {
+				if (Lang.isPublic(m) && name.equals(m.getName())) {
+					l.add(new Functor(Syntax.Method, m));
+				}
 			}
+			cur = cur.getSuperclass();
 		}
 	}
 

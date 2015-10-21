@@ -190,31 +190,13 @@ public class Lang {
 		if (t == t2) {
 			return t;
 		}
-		if (t == BigDecimal.class || t2 == BigDecimal.class) {
-			return BigDecimal.class;
-		}
-		if (t == BigInteger.class || t2 == BigInteger.class) {
-			return BigInteger.class;
-		}
-		if (t == double.class || t2 == double.class) {
-			return double.class;
-		}
-		if (t == long.class || t2 == long.class) {
-			return long.class;
-		}
-		if (t == int.class || t2 == int.class || t == byte.class || t2 == byte.class) {
-			return int.class;
-		}
 		if (t == String.class || t2 == String.class) {
 			return String.class;
 		}
-		if (t == Object.class || t2 == Object.class) {
-			return Object.class;
-		}
-		return t;
+		return unifyAdd(t, t2);
 	}
 
-	public final static Type unifyEq(Type t, Type t2) {
+	public final static Type unifyNum(Type t, Type t2) {
 		if (t == t2) {
 			return t;
 		}
@@ -230,27 +212,8 @@ public class Lang {
 		if (t == double.class || t2 == double.class) {
 			return double.class;
 		}
-		if (t == long.class || t2 == long.class) {
-			return long.class;
-		}
-		if (t == int.class || t2 == int.class) {
-			return int.class;
-		}
-		return t;
-	}
-
-	public final static Type unifyCmp(Type t, Type t2) {
-		if (t == t2) {
-			return t;
-		}
-		if (t == BigDecimal.class || t2 == BigDecimal.class) {
-			return BigDecimal.class;
-		}
-		if (t == BigInteger.class || t2 == BigInteger.class) {
-			return BigInteger.class;
-		}
-		if (t == double.class || t2 == double.class) {
-			return double.class;
+		if (t == float.class || t2 == float.class) {
+			return float.class;
 		}
 		if (t == long.class || t2 == long.class) {
 			return long.class;
@@ -258,20 +221,13 @@ public class Lang {
 		if (t == int.class || t2 == int.class) {
 			return int.class;
 		}
-		return t;
-	}
-
-	public final static Type unifyBit(Type t, Type t2) {
-		if (t == Object.class || t2 == Object.class) {
-			return Object.class;
+		if (t == char.class || t2 == char.class) {
+			return char.class;
 		}
-		if (t == BigInteger.class || t2 == BigInteger.class) {
-			return BigInteger.class;
+		if (t == short.class || t2 == short.class) {
+			return int.class;
 		}
-		if (t == long.class || t2 == long.class) {
-			return long.class;
-		}
-		if (t == int.class || t2 == int.class) {
+		if (t == byte.class || t2 == byte.class) {
 			return int.class;
 		}
 		return t;

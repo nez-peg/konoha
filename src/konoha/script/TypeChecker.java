@@ -243,6 +243,13 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 
 	/* Statement */
 
+	public class Empty extends Undefined {
+		@Override
+		public Type acceptType(TypedTree node) {
+			return void.class;
+		}
+	}
+
 	public class Block extends Undefined {
 		@Override
 		public Type acceptType(TypedTree node) {
@@ -732,7 +739,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 
 	private static final Type[] emptyTypes = new Type[0];
 
-	private Type typeUnary(TypedTree node, String name) {
+	private Type typeUnary(Type ret, TypedTree node, String name) {
 		Type left = visit(node.get(_expr));
 		Type common = Lang.toPrimitiveType(left);
 		if (left != common) {
@@ -741,13 +748,19 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 		Type[] a = { left };
 		Functor f = this.typeSystem.getMethod(methodMatcher, left, name, a);
 		if (f != null) {
+			if (ret == null) {
+				ret = left;
+			}
 			return found(node, f, methodMatcher);
+		}
+		if (typeSystem.isDynamic(left)) {
+			Debug.TODO("Indy");
 		}
 		Functor[] fs = this.typeSystem.getMethods(left, name);
 		return unfound(node, fs, Message.Unary__, OperatorNames.name(name), name(left));
 	}
 
-	public Type typeBinary(TypedTree node, String name) {
+	public Type typeBinary(Type ret, TypedTree node, String name) {
 		Type left = visit(node.get(_left));
 		Type right = visit(node.get(_right));
 		Type[] a = { left, right };
@@ -755,141 +768,174 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 		if (f != null) {
 			return found(node, f, methodMatcher);
 		}
+		if (typeSystem.isDynamic(left)) {
+			if (ret == null) {
+				ret = left;
+			}
+			Debug.TODO("Indy");
+		}
 		Functor[] fs = this.typeSystem.getMethods(left, name);
 		return unfound(node, fs, Message.Binary___, name(left), OperatorNames.name(name), name(right));
 	}
 
-	public void unifyBinaryA(TypedTree node) {
+	public void unifyBinaryAdd(TypedTree node) {
 		Type left = visit(node.get(_left));
 		Type right = visit(node.get(_right));
 		Type common = Lang.unifyAdd(Lang.toPrimitiveType(left), Lang.toPrimitiveType(right));
 		if (left != common) {
 			this.tryCastBeforeMatching(common, node, _left);
 		}
-		if (right != common) {
-			this.tryCastBeforeMatching(common, node, _right);
-		}
+		// if (right != common) {
+		// this.tryCastBeforeMatching(common, node, _right);
+		// }
 	}
 
-	public void unifyBinaryBit(TypedTree node) {
+	public void unifyBinaryNum(TypedTree node) {
 		Type left = visit(node.get(_left));
 		Type right = visit(node.get(_right));
-		Type common = Lang.unifyBit(Lang.toPrimitiveType(left), Lang.toPrimitiveType(right));
+		Type common = Lang.unifyNum(Lang.toPrimitiveType(left), Lang.toPrimitiveType(right));
 		if (left != common) {
 			this.tryCastBeforeMatching(common, node, _left);
 		}
-		if (right != common) {
-			this.tryCastBeforeMatching(common, node, _right);
-		}
+		// if (right != common) {
+		// this.tryCastBeforeMatching(common, node, _right);
+		// }
 	}
 
 	public class Add extends Undefined {
 		@Override
 		public Type acceptType(TypedTree node) {
-			unifyBinaryA(node);
-			return typeBinary(node, "add");
+			unifyBinaryAdd(node);
+			return typeBinary(null, node, "add");
 		}
 	}
 
 	public class Sub extends Undefined {
 		@Override
 		public Type acceptType(TypedTree node) {
-			unifyBinaryA(node);
-			return typeBinary(node, "subtract");
+			unifyBinaryNum(node);
+			return typeBinary(null, node, "subtract");
 		}
 	}
 
 	public class Mul extends Undefined {
 		@Override
 		public Type acceptType(TypedTree node) {
-			unifyBinaryA(node);
-			return typeBinary(node, "multiply");
+			unifyBinaryNum(node);
+			return typeBinary(null, node, "multiply");
 		}
 	}
 
 	public class Div extends Undefined {
 		@Override
 		public Type acceptType(TypedTree node) {
-			unifyBinaryA(node);
-			return typeBinary(node, "divide");
+			unifyBinaryNum(node);
+			return typeBinary(null, node, "divide");
 		}
 	}
 
 	public class Mod extends Undefined {
 		@Override
 		public Type acceptType(TypedTree node) {
-			unifyBinaryA(node);
-			return typeBinary(node, "mod");
+			unifyBinaryNum(node);
+			return typeBinary(null, node, "mod");
 		}
 	}
 
 	public class Plus extends Undefined {
 		@Override
 		public Type acceptType(TypedTree node) {
-			return typeUnary(node, "opPlus");
+			return visit(node.get(_expr));
 		}
 	}
 
 	public class Minus extends Undefined {
 		@Override
 		public Type acceptType(TypedTree node) {
-			return typeUnary(node, "negate");
+			return typeUnary(null, node, "negate");
 		}
 	}
 
 	public class Equals extends Undefined {
 		@Override
 		public Type acceptType(TypedTree node) {
-			return typeBinary(node, "eq");
+			if (node.get(_right).is(_Null)) {
+				return typeNullCheck(_NullCheck, node, _left);
+			}
+			if (node.get(_left).is(_Null)) {
+				return typeNullCheck(_NullCheck, node, _right);
+			}
+			unifyBinaryNum(node);
+			return typeBinary(boolean.class, node, "eq");
 		}
 	}
 
 	public class NotEquals extends Undefined {
 		@Override
 		public Type acceptType(TypedTree node) {
-			return typeBinary(node, "ne");
+			if (node.get(_right).is(_Null)) {
+				return typeNullCheck(_NonNullCheck, node, _left);
+			}
+			if (node.get(_left).is(_Null)) {
+				return typeNullCheck(_NonNullCheck, node, _right);
+			}
+			unifyBinaryNum(node);
+			return typeBinary(boolean.class, node, "ne");
 		}
+	}
+
+	Type typeNullCheck(Symbol tag, TypedTree node, Symbol expr) {
+		visit(node.get(expr));
+		Class<?> c = node.getClassType();
+		if (c.isPrimitive()) {
+			node.setConst(boolean.class, tag == _NullCheck ? false : true);
+		} else {
+			node.setTag(tag);
+			node.make(_expr, node.get(expr));
+		}
+		return boolean.class;
 	}
 
 	public class LessThan extends Undefined {
 		@Override
 		public Type acceptType(TypedTree node) {
-			return typeBinary(node, "lt");
+			unifyBinaryNum(node);
+			return typeBinary(boolean.class, node, "lt");
 		}
 	}
 
 	public class LessThanEquals extends Undefined {
 		@Override
 		public Type acceptType(TypedTree node) {
-			return typeBinary(node, "lte");
+			return typeBinary(boolean.class, node, "lte");
 		}
 	}
 
 	public class GreaterThan extends Undefined {
 		@Override
 		public Type acceptType(TypedTree node) {
-			return typeBinary(node, "gt");
+			return typeBinary(boolean.class, node, "gt");
 		}
 	}
 
 	public class GreaterThanEquals extends Undefined {
 		@Override
 		public Type acceptType(TypedTree node) {
-			return typeBinary(node, "gte");
+			return typeBinary(boolean.class, node, "gte");
 		}
 	}
 
 	public class LeftShift extends Undefined {
 		@Override
 		public Type acceptType(TypedTree node) {
-			return typeBinary(node, "shiftLeft");
+			return typeBinary(null, node, "shiftLeft");
 		}
 	}
 
 	public class RightShift extends Undefined {
 		@Override
 		public Type acceptType(TypedTree node) {
-			return typeBinary(node, "shiftRight");
+			return typeBinary(null, node, "shiftRight");
 		}
 	}
 
@@ -903,28 +949,28 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 	public class BitwiseAnd extends Undefined {
 		@Override
 		public Type acceptType(TypedTree node) {
-			return typeBinary(node, "and");
+			return typeBinary(null, node, "and");
 		}
 	}
 
 	public class BitwiseOr extends Undefined {
 		@Override
 		public Type acceptType(TypedTree node) {
-			return typeBinary(node, "or");
+			return typeBinary(null, node, "or");
 		}
 	}
 
 	public class BitwiseXor extends Undefined {
 		@Override
 		public Type acceptType(TypedTree node) {
-			return typeBinary(node, "xor");
+			return typeBinary(null, node, "xor");
 		}
 	}
 
 	public class Compl extends Undefined {
 		@Override
 		public Type acceptType(TypedTree node) {
-			return typeUnary(node, "not");
+			return typeUnary(null, node, "not");
 		}
 	}
 
@@ -950,7 +996,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 		@Override
 		public Type acceptType(TypedTree node) {
 			enforceType(boolean.class, node, _expr);
-			return typeUnary(node, "not");
+			return typeUnary(boolean.class, node, "not");
 		}
 	}
 
