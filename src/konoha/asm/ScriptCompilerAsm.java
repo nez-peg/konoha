@@ -1223,7 +1223,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<SyntaxTreeAsmVisitor> implem
 		public void acceptAsm(TypedTree node) {
 			// evalSuffixInc(node, 1);
 			visit(node.get(_expr));
-			visit(node.get(_body));
+			visitStatementAsBlock(node.get(_body));
 		}
 	}
 
@@ -1231,6 +1231,8 @@ public class ScriptCompilerAsm extends TreeVisitor2<SyntaxTreeAsmVisitor> implem
 		@Override
 		public void acceptAsm(TypedTree node) {
 			// evalSuffixInc(node, -1);
+			visit(node.get(_expr));
+			visitStatementAsBlock(node.get(_body));
 		}
 	}
 
