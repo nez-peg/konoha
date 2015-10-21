@@ -908,7 +908,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 
 	Type typeNullCheck(Symbol tag, TypedTree node, Symbol expr) {
 		visit(node.get(expr));
-		Class<?> c = node.getClassType();
+		Class<?> c = node.get(expr).getClassType();
 		if (c.isPrimitive()) {
 			node.setConst(boolean.class, tag == _NullCheck ? false : true);
 		} else {
