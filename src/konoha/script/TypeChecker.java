@@ -5,6 +5,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 
 import konoha.Function;
+import konoha.asm.DynamicMember;
 import konoha.message.Message;
 import nez.ast.Symbol;
 import nez.ast.TreeVisitor2;
@@ -1166,7 +1167,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 			return found(node, f, methodMatcher, node.get(_recv));
 		}
 		if (typeSystem.isDynamic(recvType)) {
-			Debug.TODO("Indy");
+			return found(node, DynamicMember.newGetter(name), methodMatcher, node.get(_recv));
 		}
 		throw error(node.get(_name), Message.UndefinedField__, name(recvType), name);
 	}
@@ -1190,7 +1191,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 			return found(node, f, methodMatcher, field.get(_recv), node.get(_right));
 		}
 		if (typeSystem.isDynamic(recvType)) {
-			Debug.TODO("Indy");
+			return found(node, DynamicMember.newSetter(name), methodMatcher, field.get(_recv), node.get(_right));
 		}
 		throw error(field.get(_name), Message.UndefinedField__, name(recvType), name);
 	}
@@ -1301,7 +1302,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 				return found(indexer, f, methodMatcher, indexer.get(_recv), indexer.get(_param));
 			}
 			if (typeSystem.isDynamic(recvType)) {
-				Debug.TODO("Indy");
+				return found(indexer, DynamicMember.newIndexGetter("get"), methodMatcher, indexer.get(_recv), indexer.get(_param));
 			}
 			Functor[] unmatched = typeSystem.getMethods(recvType, "get");
 			return unfound(indexer, unmatched, Message.Indexer_, name(recvType));
@@ -1317,7 +1318,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 			return found(node, f, methodMatcher, indexer.get(_recv), indexer.get(_param), expr);
 		}
 		if (typeSystem.isDynamic(recvType)) {
-			Debug.TODO("Indy");
+			return found(indexer, DynamicMember.newIndexSetter("set"), methodMatcher, indexer.get(_recv), indexer.get(_param));
 		}
 		Functor[] unmatched = typeSystem.getMethods(recvType, "set");
 		return unfound(indexer, unmatched, Message.Indexer_, name(recvType));
