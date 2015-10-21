@@ -19,6 +19,7 @@ public class ScriptContext {
 		this.typeSystem = new TypeSystem(this);
 		this.typechecker = new TypeChecker(this, typeSystem);
 		this.interpreter = new Interpreter(this, typeSystem);
+		this.set("__lookup__", typeSystem);
 		// new TypeChecker2();
 	}
 

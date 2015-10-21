@@ -200,6 +200,21 @@ public class Functor {
 		return null;
 	}
 
+	public final Object eval(Object... args) {
+		try {
+			return evalIndy(args);
+		} catch (Throwable e) {
+			if (e instanceof Error) {
+				throw (Error) e;
+			}
+			if (e instanceof RuntimeException) {
+				throw (RuntimeException) e;
+			}
+			e.printStackTrace();
+		}
+		return null;
+	}
+
 	public String toBetterString() {
 		return toFuncType(0);
 	}

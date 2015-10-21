@@ -13,6 +13,7 @@ import konoha.api.ObjectOp;
 import konoha.api.StringOp;
 import konoha.asm.ScriptCompiler;
 import konoha.hack.Hacker;
+import nez.util.UList;
 
 public class TypeSystem extends FunctorLookup implements CommonSymbols {
 	ScriptContext context;
@@ -146,6 +147,30 @@ public class TypeSystem extends FunctorLookup implements CommonSymbols {
 
 	public Type dynamicType() {
 		return Object.class;
+	}
+
+	private UList<Type[]> paramList = new UList<>(new Type[16][]);
+	private HashMap<String, Integer> paramMap = new HashMap<>();
+
+	public final int getIndyParameterTypes(Type[] a) {
+		StringBuilder sb = new StringBuilder();
+		sb.append(a.length);
+		for (Type t : a) {
+			sb.append(",");
+			sb.append(Lang.name(t));
+		}
+		String key = sb.toString();
+		Integer n = paramMap.get(key);
+		if (n == null) {
+			n = paramList.size();
+			paramList.add(a);
+			paramMap.put(key, n);
+		}
+		return n;
+	}
+
+	public final Type[] getIndyParameterTypes(int paramId) {
+		return paramList.get(paramId);
 	}
 
 	/* GlobalVariables */

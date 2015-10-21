@@ -19,7 +19,7 @@ public class TypeCheckerException extends RuntimeException {
 		TypedTree newnode = node.newInstance(CommonSymbols._Error, 1, null);
 		String msg = node.formatSourceMessage("error", String.format(fmt, args));
 		newnode.set(0, CommonSymbols._msg, node.newConst(String.class, msg));
-		newnode.setFunctor(KonohaRuntime.error());
+		newnode.setFunctor(KonohaFunctor.getThrowErrorFunctor());
 		return newnode;
 	}
 

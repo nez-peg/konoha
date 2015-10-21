@@ -302,7 +302,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 				String msg = node.get(_cond).formatSourceMessage("assert", "failed");
 				node.make(_cond, node.get(_cond), _msg, node.newConst(String.class, msg));
 			}
-			return functor(node, KonohaRuntime.System_assert());
+			return functor(node, KonohaFunctor.getAssertFunctor());
 		}
 	}
 
@@ -1398,7 +1398,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 			t.setTag(_Array);
 			t.setType(Object[].class);
 			node.make(_expr, t);
-			return functor(node, KonohaRuntime.String_join());
+			return functor(node, KonohaFunctor.getInterpolationFunctor());
 		}
 	}
 

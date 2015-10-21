@@ -12,7 +12,7 @@ public class TypeMatcher {
 	HashMap<String, Type> vars = new HashMap<>();
 	GenericType recvType;
 
-	TypeMatcher() {
+	public TypeMatcher() {
 	}
 
 	public final void init(Type recvType) {
