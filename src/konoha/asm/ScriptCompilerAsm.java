@@ -1307,6 +1307,43 @@ public class ScriptCompilerAsm extends TreeVisitor2<SyntaxTreeAsmVisitor> implem
 	// inf.pushInstruction(mBuilder);
 	// }
 	// }
+	public class NullCheck extends Undefined {
+		@Override
+		public void acceptAsm(TypedTree node) {
+			if (node.getValue() != null && node.getValue().getClass() == Boolean.class) {
+				mBuilder.push((boolean) node.getValue());
+			} else {
+				Label trueLabel = mBuilder.newLabel();
+				Label mergeLabel = mBuilder.newLabel();
+				visit(node.get(_expr));
+				mBuilder.ifNull(trueLabel);
+				mBuilder.push(false);
+				mBuilder.goTo(mergeLabel);
+				mBuilder.mark(trueLabel);
+				mBuilder.push(true);
+				mBuilder.mark(mergeLabel);
+			}
+		}
+	}
+
+	public class NonNullCheck extends Undefined {
+		@Override
+		public void acceptAsm(TypedTree node) {
+			if (node.getValue() != null && node.getValue().getClass() == Boolean.class) {
+				mBuilder.push((boolean) node.getValue());
+			} else {
+				Label trueLabel = mBuilder.newLabel();
+				Label mergeLabel = mBuilder.newLabel();
+				visit(node.get(_expr));
+				mBuilder.ifNonNull(trueLabel);
+				mBuilder.push(false);
+				mBuilder.goTo(mergeLabel);
+				mBuilder.mark(trueLabel);
+				mBuilder.push(true);
+				mBuilder.mark(mergeLabel);
+			}
+		}
+	}
 
 	public class Null extends Undefined {
 		@Override

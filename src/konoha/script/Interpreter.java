@@ -254,6 +254,26 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 		}
 	}
 
+	public class NullCheck extends Undefined {
+		@Override
+		public Object accept(TypedTree node) {
+			if (node.getValue() != null) {
+				return node.getValue();
+			}
+			return visit(node.get(_expr)) == null;
+		}
+	}
+
+	public class NonNullCheck extends Undefined {
+		@Override
+		public Object accept(TypedTree node) {
+			if (node.getValue() != null) {
+				return node.getValue();
+			}
+			return visit(node.get(_expr)) != null;
+		}
+	}
+
 	public class _Array extends Undefined {
 		@Override
 		public Object accept(TypedTree node) {
