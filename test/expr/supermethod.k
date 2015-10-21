@@ -4,14 +4,14 @@ String s = "";
 
 // 1. check eval (top level)
 
-int h = s.hashCode();
-assert(h != 0);
+var h = s.getClass();
+assert(h != null);
 
 // 2. check in function
 
-int f(String x) {
-  return x.hashCode();
+typeof(h) f(String x) {
+  return x.getClass();
 }
 
-assert(f(s) != 0); 
+assert(f(s) == h); 
 

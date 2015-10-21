@@ -473,7 +473,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 
 			// finally block
 			if (node.has(_finally)) {
-				Type type = visit(node.get(_finally));
+				visit(node.get(_finally));
 				// typed(node.get(_finally), type);
 			}
 			return void.class;
