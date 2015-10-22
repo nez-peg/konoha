@@ -3,8 +3,8 @@
 ok=0
 fail=0
 
-for f in test/*/*.k; do 
-	java -ea -jar /usr/local/lib/konoha.jar $f
+for f in test/*/*.k; do
+	java -ea -jar ./konoha.jar $f
 	if [ $? -eq 0 ] ; then
 		ok=$(( $ok+1 ))
 		echo -n $'\e[33mOK'
@@ -17,4 +17,3 @@ for f in test/*/*.k; do
 done
 
 echo "RESULT pass $ok fail $fail"
-
