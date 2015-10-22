@@ -60,7 +60,7 @@ public class Lang {
 			return "untyped";
 		}
 		if (isKonohaArray(t) || isNativeArray(t)) {
-			return getArrayElementType(t) + "[]";
+			return name(getArrayElementType(t)) + "[]";
 		}
 		if (t instanceof Class<?>) {
 			if (t == Object.class) {

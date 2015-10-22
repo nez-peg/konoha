@@ -7,6 +7,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 
+import konoha.Function;
 import konoha.asm.Prototype;
 import nez.util.ConsoleUtils;
 
@@ -17,11 +18,6 @@ public class Functor {
 	public Object ref;
 	private Type[] paramTypes = null; // cache
 
-	public Functor(Syntax syntax, Method ref) {
-		this.syntax = syntax;
-		this.ref = ref;
-	}
-
 	public Functor(Syntax syntax, Field f) {
 		this.syntax = syntax;
 		this.ref = f;
@@ -30,6 +26,16 @@ public class Functor {
 	public Functor(Syntax syntax, Constructor<?> c) {
 		this.syntax = syntax;
 		this.ref = c;
+	}
+
+	public Functor(Syntax syntax, Method m) {
+		this.syntax = syntax;
+		this.ref = m;
+	}
+
+	public Functor(Syntax syntax, Type funcType) {
+		this.syntax = syntax;
+		this.ref = funcType;
 	}
 
 	public Functor(Syntax syntax, Prototype proto) {
@@ -87,6 +93,9 @@ public class Functor {
 		if (ref instanceof Constructor<?>) {
 			return ((Constructor<?>) ref).getDeclaringClass();
 		}
+		if (ref instanceof Type) {
+			return TypeSystem.getFuncReturnType((Type) ref);
+		}
 		return Object.class;
 	}
 
@@ -113,6 +122,13 @@ public class Functor {
 			if (paramTypes == null) {
 				paramTypes = c.getGenericParameterTypes();
 			}
+		}
+		if (ref instanceof Type) {
+			if (paramTypes == null) {
+				paramTypes = TypeSystem.getFuncParameterTypes((Type) ref);
+			}
+		}
+		if (paramTypes != null) {
 			return paramTypes.length;
 		}
 		return 0;
@@ -149,6 +165,12 @@ public class Functor {
 			}
 			return paramTypes[index];
 		}
+		if (ref instanceof Type) {
+			if (paramTypes == null) {
+				paramTypes = TypeSystem.getFuncParameterTypes((Type) ref);
+			}
+			return paramTypes[index];
+		}
 		return Object.class;
 	}
 
@@ -164,13 +186,21 @@ public class Functor {
 		return false;
 	}
 
+	public final static MethodHandle toMethodHandler(Method f) {
+		try {
+			return lookup.unreflect(f);
+		} catch (IllegalAccessException e) {
+			Debug.traceException(e);
+		}
+		return null;
+	}
+
 	private Object evalIndy(Object... args) throws Throwable {
 		MethodHandle mh = null;
 		if (ref instanceof Method) {
 			mh = lookup.unreflect((Method) ref);
 			return mh.invokeWithArguments(args);
-		}
-		if (ref instanceof Field) {
+		} else if (ref instanceof Field) {
 			if (syntax == Syntax.Getter) {
 				mh = lookup.unreflectGetter((Field) ref);
 			} else {
@@ -178,8 +208,9 @@ public class Functor {
 				mh.invokeWithArguments(args);
 				return args[args.length - 1];
 			}
-		}
-		if (ref instanceof Constructor<?>) {
+		} else if (ref instanceof Type) {
+			mh = ((Function) args[0]).mh;
+		} else if (ref instanceof Constructor<?>) {
 			mh = lookup.unreflectConstructor((Constructor<?>) ref);
 		}
 		if (mh != null) {

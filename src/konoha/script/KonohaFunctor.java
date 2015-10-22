@@ -144,13 +144,13 @@ public abstract class KonohaFunctor {
 		return val;
 	}
 
-	private static Functor Object_invokeFunction = null;
+	private static Functor invokeFunc = null;
 
-	static Functor Object_invokeFunction() {
-		if (Object_invokeFunction == null) {
-			Object_invokeFunction = load(Syntax.Function, "Object_invokeFunction", Function.class, Object[].class);
+	static Functor getInvokeFunc() {
+		if (invokeFunc == null) {
+			invokeFunc = load(Syntax.Function, "invokeFunc", Function.class, Object[].class);
 		}
-		return Object_invokeFunction;
+		return invokeFunc;
 	}
 
 	public final static Object invokeFunc(Function self, Object... a) {

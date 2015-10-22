@@ -3,6 +3,7 @@ package konoha.script;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
+import java.math.BigInteger;
 
 import konoha.Function;
 import konoha.asm.DynamicMember;
@@ -123,7 +124,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 		try {
 			typeSystem.importStaticClass(path);
 		} catch (ClassNotFoundException e) {
-			throw error(node.get(_name), Message.UndefinedClass_, path);
+			throw error(node.get(_name), Message.UndefinedPackage_, path);
 		}
 		node.done();
 		return void.class;
@@ -236,11 +237,11 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 		}
 		if (t == void.class) {
 			if (node.size() > 0) {
-				node.removeSubtree();
+				node.sub();
 			}
 		} else {
 			if (!node.has(_expr)) {
-				node.make(_expr, newDefault(node, t));
+				node.sub(_expr, newDefault(node, t));
 			}
 			this.enforceType(t, node, _expr);
 		}
@@ -308,7 +309,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 
 	public void checkCondition(TypedTree node, Symbol condLabel) {
 		if (node.get(condLabel).is(_Assign)) {
-			this.reportWarning(node.get(condLabel), "==");
+			this.reportWarning(node.get(condLabel), Message.AssignInCondition);
 			node.setTag(_Equals);
 		}
 		enforceType(boolean.class, node, condLabel);
@@ -322,7 +323,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 				enforceType(String.class, node, _msg);
 			} else {
 				String msg = node.get(_cond).formatSourceMessage("assert", "failed");
-				node.make(_cond, node.get(_cond), _msg, node.newConst(String.class, msg));
+				node.sub(_cond, node.get(_cond), _msg, node.newConst(String.class, msg));
 			}
 			return functor(node, KonohaFunctor.getAssertFunctor());
 		}
@@ -505,17 +506,40 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 		}
 	}
 
+	public class NewArray extends Undefined {
+		@Override
+		public Type acceptType(TypedTree node) {
+			// FIXME only supported for single dimensinal array
+			// #NewArray[$size: #Integer]
+			Type t = resolveType(node.get(_type), null);
+			TypedTree size = node.get(_type).get(_size);
+			node.sub(_size, size);
+			enforceType(int.class, node, _size);
+			// #NewArray[$size: #Integer]
+			return t;
+		}
+	}
+
 	public Type typeVarDecl(TypedTree node) {
 		boolean isArrayName = false;
 		String name = node.getText(_name, null);
+		TypedTree arraySize = null;
 		if (node.get(_name).is(_ArrayName)) {
 			name = node.get(_name).getText(_name, null);
+			arraySize = node.get(_name).get(_param, null);
 			isArrayName = true;
 		}
 		Type type = resolveType(node.get(_type, null), null);
 		if (type != null) {
 			if (isArrayName) {
 				type = typeSystem.newArrayType(type);
+				if (!node.has(_expr) && arraySize != null) {
+					this.reportWarning(node.get(_name), Message.CStyleArray);
+					TypedTree expr = node.newInstance(_NewArray, _size, arraySize);
+					enforceType(int.class, expr, _size);
+					expr.setType(type);
+					node.add(_expr, expr);
+				}
 			}
 			if (node.has(_expr)) {
 				enforceType(type, node, _expr);
@@ -550,6 +574,14 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 		if (node.get(_name).is(_ArrayName)) {
 			name = node.get(_name).getText(_name, null);
 			type = typeSystem.newArrayType(type);
+			TypedTree arraySize = node.get(_name).get(_param, null);
+			if (!node.has(_expr) && arraySize != null) {
+				this.reportWarning(node.get(_name), Message.CStyleArray);
+				TypedTree expr = node.newInstance(_NewArray, _size, arraySize);
+				enforceType(int.class, expr, _size);
+				expr.setType(type);
+				node.add(_expr, expr);
+			}
 		}
 		if (node.has(_expr)) {
 			enforceType(type, node, _expr);
@@ -563,7 +595,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 		if (!node.has(_expr)) {
 			reportWarning(nm, Message.NoInitialValue);
 			TypedTree expr = newDefault(node, type);
-			node.make(_name, nm, _expr, expr);
+			node.sub(_name, nm, _expr, expr);
 		}
 		if (this.inFunction()) {
 			this.function.setVarType(name, type);
@@ -573,7 +605,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 		GlobalVariable gv = typeSystem.getGlobalVariable(name);
 		if (gv != null) {
 			if (gv.getType() != type) {
-				throw error(node.get(_name), Message.AlreadyDefinedName_As_, name, name(gv.getType()));
+				throw error(node.get(_name), Message.AlreadyDefinedName);
 			}
 		} else {
 			gv = typeSystem.newGlobalVariable(type, name);
@@ -615,7 +647,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 		if (this.typeSystem.hasGlobalVariable(name)) {
 			GlobalVariable gv = this.typeSystem.getGlobalVariable(name);
 			if (rewrite) {
-				node.removeSubtree();
+				node.sub();
 				return functor(node, gv.getGetter());
 			}
 			return gv.getType();
@@ -640,7 +672,6 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 	public Type typeAssign(TypedTree node) {
 		TypedTree leftnode = node.get(_left);
 		checkAssignable(leftnode);
-		Type rightType = visit(node.get(_right));
 		if (leftnode.is(_Indexer)) {
 			return typeSetIndexer(node, node.get(_left), node.get(_right));
 		}
@@ -649,6 +680,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 		}
 		assert (leftnode.is(_Name));
 		String name = node.getText(_left, "");
+		Type rightType = visit(node.get(_right));
 		if (this.inFunction()) {
 			if (this.function.containsVariable(name)) {
 				Type t = this.function.getVarType(name);
@@ -658,8 +690,19 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 			}
 		}
 		if (!this.typeSystem.hasGlobalVariable(name)) {
-			if (typeSystem.shellMode && !this.inFunction()) {
+			if (!this.inFunction()) {
+				if (!typeSystem.shellMode) {
+					this.reportWarning(node.get(_left), Message.ImplicitVariable);
+				}
 				this.typeSystem.newGlobalVariable(Object.class, name);
+			} else {
+				this.reportWarning(node.get(_left), Message.ImplicitVariable);
+				this.reportInferredType(node.get(_left), Message.InferredVariable__, name, name(rightType));
+				this.function.setVarType(name, rightType);
+				node.setTag(_VarDecl);
+				node.sub(_name, node.get(_left), _expr, node.get(_right));
+				node.get(_name).setType(rightType);
+				return void.class;
 			}
 		}
 		if (this.typeSystem.hasGlobalVariable(name)) {
@@ -670,7 +713,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 			}
 			Type t = gv.getType();
 			enforceType(t, node, _right);
-			node.make(_right, node.get(_right));
+			node.sub(_right, node.get(_right));
 			functor(node, f);
 			return t;
 		}
@@ -723,13 +766,10 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 	public Type typeApply(TypedTree node) {
 		String name = node.getText(_name, "");
 		Type[] a = typeArguments(node.get(_param));
-		// if (isRecursiveCall(node, name)) {
-		// return node.getType();
-		// }
-		// Type func_t = this.tryCheckNameType(node.get(_name), true);
-		// if (this.typeSystem.isFuncType(func_t)) {
-		// return typeFuncApply(node, func_t, node.get(_param));
-		// }
+		Type funcType = this.findFuncVariable(node);
+		if (funcType != null) {
+			return typeFuncApply(node, funcType);
+		}
 		Functor f = this.typeSystem.getFunction(methodMatcher, name, a);
 		if (f != null) {
 			return found(node, f, methodMatcher, node.get(_param));
@@ -738,26 +778,44 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 		return unfound(node, unmatched, Message.Function_, name);
 	}
 
-	// private Type typeFuncApply(TypedTree node, Type func_t, Type[] params_t,
-	// TypedTree params) {
-	// if (typeSystem.isStaticFuncType(func_t)) {
-	// Class<?>[] p = typeSystem.getFuncParameterTypes(func_t);
-	// if (accept(p, params)) {
-	// node.rename(_name, _recv);
-	// return node.setInterface(Hint.MethodApply2,
-	// FunctorFactory.newMethod(Reflector.findInvokeMethod((Class<?>) func_t)));
-	// }
-	// throw error(node, "mismatched %s", Reflector.findInvokeMethod((Class<?>)
-	// func_t));
-	// } else {
-	// for (int i = 0; i < params.size(); i++) {
-	// enforceType(Object.class, params, i);
-	// }
-	// // node.makeFlattenedList(node.get(_name), params);
-	// return node.setInterface(Hint.StaticInvocation2,
-	// KonohaRuntime.Object_invokeFunction());
-	// }
-	// }
+	private Type findFuncVariable(TypedTree node) {
+		String name = node.toText();
+		if (this.inFunction()) {
+			if (this.function.containsVariable(name)) {
+				Type t = this.function.getVarType(name);
+				if (this.typeSystem.isFuncType(t)) {
+					node.setType(t);
+					return t;
+				}
+			}
+		}
+		if (this.typeSystem.hasGlobalVariable(name)) {
+			GlobalVariable gv = this.typeSystem.getGlobalVariable(name);
+			Type t = gv.getType();
+			if (this.typeSystem.isFuncType(t)) {
+				node.sub();
+				return functor(node, gv.getGetter());
+			}
+		}
+		return null;
+	}
+
+	private Type typeFuncApply(TypedTree node, Type funcType) {
+		if (typeSystem.isStaticFuncType(funcType)) {
+			Functor f = new Functor(Syntax.FuncObject, funcType);
+			methodMatcher.init(null);
+			return found(node, f, methodMatcher, node.get(_name), node.get(_param));
+		} else {
+			TypedTree params = node.get(_param);
+			for (int i = 0; i < params.size(); i++) {
+				enforceType(Object.class, params, i);
+			}
+			params.setTag(_Array);
+			params.setType(Object[].class);
+			node.sub(_name, node.get(_name), _param, params);
+			return functor(node, KonohaFunctor.getInvokeFunc());
+		}
+	}
 
 	private static final Type[] emptyTypes = new Type[0];
 
@@ -913,7 +971,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 			node.setConst(boolean.class, tag == _NullCheck ? false : true);
 		} else {
 			node.setTag(tag);
-			node.make(_expr, node.get(expr));
+			node.sub(_expr, node.get(expr));
 		}
 		return boolean.class;
 	}
@@ -1074,35 +1132,46 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 	public class _Integer extends Undefined {
 		@Override
 		public Type acceptType(TypedTree node) {
-			try {
-				String n = node.toText().replace("_", "");
-				if (n.startsWith("0b") || n.startsWith("0B")) {
-					return node.setConst(int.class, Integer.parseInt(n.substring(2), 2));
-				} else if (n.startsWith("0x") || n.startsWith("0X")) {
-					return node.setConst(int.class, Integer.parseInt(n.substring(2), 16));
-				}
-				return node.setConst(int.class, Integer.parseInt(n));
-			} catch (NumberFormatException e) {
-				reportWarning(node, e.getMessage());
-			}
-			return node.setConst(int.class, 0);
+			return parseIntegerAs(node, int.class);
 		}
 	}
 
 	public class _Long extends Undefined {
 		@Override
 		public Type acceptType(TypedTree node) {
-			try {
-				String n = node.toText().replace("_", "");
-				if (n.endsWith("L") || n.endsWith("l")) {
-					n = n.substring(0, n.length() - 1);
-				}
-				return node.setConst(long.class, Long.parseLong(n));
-			} catch (NumberFormatException e) {
-				reportWarning(node, e.getMessage());
-			}
-			return node.setConst(long.class, 0L);
+			return parseIntegerAs(node, long.class);
 		}
+	}
+
+	public Type parseIntegerAs(TypedTree node, Class<?> base) {
+		String n = node.toText().replace("_", "");
+		int radix = 10;
+		if (n.endsWith("L") || n.endsWith("l")) {
+			n = n.substring(0, n.length() - 1);
+			base = long.class;
+		}
+		if (n.startsWith("0b") || n.startsWith("0B")) {
+			n = n.substring(2);
+			radix = 2;
+		} else if (n.startsWith("0x") || n.startsWith("0X")) {
+			n = n.substring(2);
+			radix = 16;
+		}
+		try {
+			if (base == int.class) {
+				return node.setConst(int.class, Integer.parseInt(n, radix));
+			}
+			return node.setConst(long.class, Long.parseLong(n, radix));
+		} catch (NumberFormatException e) {
+		}
+		try {
+			BigInteger big = new BigInteger(n, radix);
+			reportWarning(node, Message.TooBigInteger_, base == int.class ? 32 : 64);
+			return node.setConst(long.class, big.longValue());
+		} catch (NumberFormatException e) {
+			reportWarning(node, Message.InvalidNumberFormat, node.toText());
+		}
+		return node.setConst(base, base == int.class ? 0 : 0L);
 	}
 
 	public class _Float extends _Double {
@@ -1118,7 +1187,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 				}
 				return node.setConst(double.class, Double.parseDouble(n));
 			} catch (NumberFormatException e) {
-				reportWarning(node, e.getMessage());
+				reportWarning(node, Message.InvalidNumberFormat);
 			}
 			return node.setConst(double.class, 0.0);
 		}
@@ -1182,7 +1251,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 		Functor f = typeSystem.getGetter(methodMatcher, recvType, name);
 		if (f != null) {
 			if (isStaticField(f)) {
-				node.removeSubtree();
+				node.sub();
 				return found(node, f, methodMatcher);
 			}
 			return found(node, f, methodMatcher, node.get(_recv));
@@ -1237,7 +1306,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 		Functor f = typeSystem.getStaticGetter(methodMatcher, recvClass, name);
 		// System.out.println("get f" + f);
 		if (f != null) {
-			node.removeSubtree();
+			node.sub();
 			return found(node, f, methodMatcher);
 		}
 		throw error(node.get(_name), Message.UndefinedField__, name(recvClass), name);
@@ -1422,7 +1491,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 			TypedTree t = node.dup();
 			t.setTag(_Array);
 			t.setType(Object[].class);
-			node.make(_expr, t);
+			node.sub(_expr, t);
 			return functor(node, KonohaFunctor.getInterpolationFunctor());
 		}
 	}
@@ -1431,7 +1500,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 
 	private Type typeSelfAssignment(TypedTree node, Symbol optag) {
 		TypedTree op = node.newInstance(optag, 0, null);
-		op.make(_left, node.get(_left).dup(), _right, node.get(_right));
+		op.sub(_left, node.get(_left).dup(), _right, node.get(_right));
 		node.set(_right, op);
 		node.setTag(_Assign);
 		return typeAssign(node);
@@ -1516,14 +1585,14 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 
 	private TypedTree desugarInc(TypedTree expr, Symbol optag) {
 		TypedTree op = expr.newInstance(optag, 0, null);
-		op.make(_left, expr.dup(), _right, expr.newConst(int.class, 1));
+		op.sub(_left, expr.dup(), _right, expr.newConst(int.class, 1));
 		return op;
 	}
 
 	private TypedTree desugarAssign(TypedTree node, TypedTree expr, Symbol optag) {
 		TypedTree op = expr.newInstance(optag, 0, null);
-		op.make(_left, expr.dup(), _right, expr.newConst(int.class, 1));
-		node.make(_left, expr, _right, desugarInc(expr, _Add));
+		op.sub(_left, expr.dup(), _right, expr.newConst(int.class, 1));
+		node.sub(_left, expr, _right, desugarInc(expr, _Add));
 		node.setTag(_Assign);
 		return node;
 	}
@@ -1549,7 +1618,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 		public Type acceptType(TypedTree node) {
 			TypedTree expr = node.get(_recv);
 			TypedTree assign = desugarAssign(node.newInstance(_Assign, 2, null), expr.dup(), _Add);
-			node.make(_expr, expr, _body, assign);
+			node.sub(_expr, expr, _body, assign);
 			Type t = visit(expr);
 			visit(assign);
 			return t;
@@ -1561,7 +1630,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 		public Type acceptType(TypedTree node) {
 			TypedTree expr = node.get(_recv);
 			TypedTree assign = desugarAssign(node.newInstance(_Assign, 2, null), expr.dup(), _Sub);
-			node.make(_expr, expr, _body, assign);
+			node.sub(_expr, expr, _body, assign);
 			Type t = visit(expr);
 			visit(assign);
 			return t;

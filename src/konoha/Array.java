@@ -57,19 +57,19 @@ public class Array<T> extends AbstractList<T> implements KonohaArray {
 		sBuilder.append("[");
 		for (int i = 0; i < this.size(); i++) {
 			if (i > 0) {
-				sBuilder.append(", ");
+				sBuilder.append(",");
 			}
-			sBuilder.append(this.Stringify(this.ArrayValues[i]));
+			sBuilder.append(this.stringify(this.ArrayValues[i]));
 		}
 		sBuilder.append("]");
 		return sBuilder.toString();
 	}
 
-	protected String Stringify(Object Value) {
-		if (Value instanceof String) {
-			return StringUtils.quoteString('"', (String) Value, '"');
+	protected String stringify(Object value) {
+		if (value instanceof String) {
+			return StringUtils.quoteString('"', (String) value, '"');
 		}
-		return Value.toString();
+		return value == null ? "null" : value.toString();
 	}
 
 	private T[] newArray(int orgsize, int newsize) {

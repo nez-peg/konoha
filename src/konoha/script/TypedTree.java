@@ -41,6 +41,12 @@ public class TypedTree extends Tree<TypedTree> {
 		return t;
 	}
 
+	public TypedTree newInstance(Symbol tag, Symbol l1, TypedTree t1) {
+		TypedTree t = new TypedTree(tag, this.getSource(), this.getSourcePosition(), 0, 0, null);
+		t.sub(l1, t1);
+		return t;
+	}
+
 	public TypedTree newConst(Type type, Object value) {
 		TypedTree t = new TypedTree(CommonSymbols._Const, this.getSource(), this.getSourcePosition(), 0, 0, value);
 		t.setConst(type, value);
@@ -115,22 +121,35 @@ public class TypedTree extends Tree<TypedTree> {
 		this.labels = new Symbol[l.size()];
 	}
 
-	public void removeSubtree() {
+	public void add(Symbol l, TypedTree t) {
+		TypedTree[] newTree = new TypedTree[labels.length + 1];
+		Symbol[] newLabels = new Symbol[labels.length + 1];
+		if (subTree != null) {
+			System.arraycopy(subTree, 0, newTree, 0, labels.length);
+		}
+		System.arraycopy(labels, 0, newLabels, 0, labels.length);
+		newLabels[labels.length] = l;
+		newTree[labels.length] = t;
+		this.subTree = newTree;
+		this.labels = newLabels;
+	}
+
+	public void sub() {
 		this.subTree = null;
 		this.labels = EmptyLabels;
 	}
 
-	public void make(Symbol l1, TypedTree t1) {
+	public void sub(Symbol l1, TypedTree t1) {
 		this.subTree = new TypedTree[] { t1 };
 		this.labels = new Symbol[] { l1 };
 	}
 
-	public void make(Symbol l1, TypedTree t1, Symbol l2, TypedTree t2) {
+	public void sub(Symbol l1, TypedTree t1, Symbol l2, TypedTree t2) {
 		this.subTree = new TypedTree[] { t1, t2 };
 		this.labels = new Symbol[] { l1, l2 };
 	}
 
-	public void make(Symbol l1, TypedTree t1, Symbol l2, TypedTree t2, Symbol l3, TypedTree t3) {
+	public void sub(Symbol l1, TypedTree t1, Symbol l2, TypedTree t2, Symbol l3, TypedTree t3) {
 		this.subTree = new TypedTree[] { t1, t2, t3 };
 		this.labels = new Symbol[] { l1, l2, l3 };
 	}

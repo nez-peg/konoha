@@ -282,10 +282,7 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 				return a;
 			}
 			Class<?> atype = Lang.getArrayElementClass(node.getType());
-			if (atype == int.class) {
-				return new ArrayInt((int[]) a);
-			}
-			return new Array<Object>((Object[]) a);
+			return newArray(atype, a);
 		}
 	}
 
@@ -299,4 +296,20 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 		return a;
 	}
 
+	public class NewArray extends Undefined {
+		@Override
+		public Object accept(TypedTree node) {
+			int size = (Integer) visit(node.get(_size));
+			Class<?> atype = Lang.getArrayElementClass(node.getType());
+			Object a = java.lang.reflect.Array.newInstance(atype, size);
+			return newArray(atype, a);
+		}
+	}
+
+	private Object newArray(Class<?> atype, Object a) {
+		if (atype == int.class) {
+			return new ArrayInt((int[]) a);
+		}
+		return new Array<Object>((Object[]) a);
+	}
 }

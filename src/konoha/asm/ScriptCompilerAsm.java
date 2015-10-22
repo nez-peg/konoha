@@ -183,110 +183,14 @@ public class ScriptCompilerAsm extends TreeVisitor2<SyntaxTreeAsmVisitor> implem
 		}
 	}
 
-	// private void visitStaticInvocationHint(TypedTree node) {
-	// for (TypedTree sub : node) {
-	// visit(sub);
-	// }
-	// AsmFunctor inf = getInterface(node);
-	// inf.pushInstruction(this.mBuilder);
-	// this.unbox(node.getType(), inf.getReturnClass());
-	// }
-	//
-	// private void visitUpCastHint(TypedTree node) {
-	// visit(node.get(_expr));
-	// }
-
 	private void visitDownCastHint(TypedTree node) {
 		visit(node.get(_expr));
 		this.mBuilder.checkCast(Type.getType(node.getClassType()));
 	}
 
-	// private void visitApplyHint(TypedTree node) {
-	// for (TypedTree sub : node.get(_param)) {
-	// visit(sub);
-	// }
-	// AsmFunctor inf = getInterface(node);
-	// inf.pushInstruction(this.mBuilder);
-	// this.unbox(node.getType(), inf.getReturnClass());
-	// }
-	//
-	// private void visitRecursiveApplyHint(TypedTree node) {
-	// for (TypedTree sub : node.get(_param)) {
-	// visit(sub);
-	// }
-	// this.mBuilder.invokeStatic(this.cBuilder.getTypeDesc(),
-	// this.mBuilder.getMethod());
-	// }
-	//
-	// private void visitGetFieldHint(TypedTree node) {
-	// Field f = node.getField();
-	// if (Modifier.isStatic(f.getModifiers())) {
-	// Type owner = Type.getType(f.getDeclaringClass());
-	// String name = f.getName();
-	// Type fieldType = Type.getType(f.getType());
-	// this.mBuilder.getStatic(owner, name, fieldType);
-	// } else {
-	// visit(node.get(_recv));
-	// Type owner = Type.getType(f.getDeclaringClass());
-	// String name = f.getName();
-	// Type fieldType = Type.getType(f.getType());
-	// this.mBuilder.getField(owner, name, fieldType);
-	// }
-	// }
-	//
-	// private AsmFunctor getInterface(TypedTree node) {
-	// return (AsmFunctor) node.getValue();
-	// }
-	//
-	// private void visitConstructorHint(TypedTree node) {
-	// AsmFunctor inf = getInterface(node);
-	// this.mBuilder.newInstance(inf.getOwner());
-	// this.mBuilder.dup();
-	// for (TypedTree sub : node.get(_param)) {
-	// visit(sub);
-	// }
-	// inf.pushInstruction(this.mBuilder);
-	// }
-	//
-	// private void visitMehodApplyHint(TypedTree node) {
-	// visit(node.get(_recv));
-	// for (TypedTree sub : node.get(_param)) {
-	// visit(sub);
-	// }
-	// AsmFunctor inf = this.getInterface(node);
-	// inf.pushInstruction(this.mBuilder);
-	// this.unbox(node.getType(), inf.getReturnClass());
-	// }
-
 	private void unbox(java.lang.reflect.Type type, Class<?> clazz) {
 		// TODO
 	}
-
-	// private void visitSetFieldHint(TypedTree node) {
-	// Field f = node.getField();
-	// if (Modifier.isStatic(f.getModifiers())) {
-	// visit(node.get(_expr));
-	// Type owner = Type.getType(f.getDeclaringClass());
-	// String name = f.getName();
-	// Type fieldType = Type.getType(f.getType());
-	// this.mBuilder.putStatic(owner, name, fieldType);
-	// } else {
-	// visit(node.get(_recv));
-	// visit(node.get(_expr));
-	// Type owner = Type.getType(f.getDeclaringClass());
-	// String name = f.getName();
-	// Type fieldType = Type.getType(f.getType());
-	// this.mBuilder.putField(owner, name, fieldType);
-	// }
-	// }
-
-	// public class Interpolation extends Undefined {
-	// }
-
-	// methodAdapter.newInstance(NPE_TYPE);
-	// methodAdapter.dup();
-	// methodAdapter.push("The dispatcher must never be null!");
-	// methodAdapter.invokeConstructor(NPE_TYPE,NPE_CONSTRUCTOR);
 
 	/* class */
 
@@ -1290,23 +1194,19 @@ public class ScriptCompilerAsm extends TreeVisitor2<SyntaxTreeAsmVisitor> implem
 		}
 	}
 
-	// public class List extends Undefined {
-	// @Override
-	// public void acceptAsm(TypedTree node) {
-	// for (TypedTree element : node) {
-	// visit(element);
-	// }
-	// }
-	// }
+	public class NewArray extends Undefined {
+		@Override
+		public void acceptAsm(TypedTree node) {
+			Class<?> c = node.getClassType();
+			Class<?> elemClass = Lang.getArrayElementClass(c);
+			mBuilder.newInstance(Type.getType(c));
+			mBuilder.dup();
+			visit(node.get(_size));
+			mBuilder.newArray(Type.getType(elemClass));
+			mBuilder.invokeConstructor(Type.getType(node.getClassType()), Method.getMethod("void <init> (" + elemClass.getName() + "[])"));
+		}
+	}
 
-	// public class Interpolation extends Undefined {
-	// @Override
-	// public void acceptAsm(TypedTree node) {
-	// pushArray(Object.class, node);
-	// AsmFunctor inf = getInterface(node);
-	// inf.pushInstruction(mBuilder);
-	// }
-	// }
 	public class NullCheck extends Undefined {
 		@Override
 		public void acceptAsm(TypedTree node) {
