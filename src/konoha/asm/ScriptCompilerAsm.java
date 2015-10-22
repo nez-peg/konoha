@@ -941,9 +941,6 @@ public class ScriptCompilerAsm extends TreeVisitor2<SyntaxTreeAsmVisitor> implem
 			visit(node.get(_try));
 			mBuilder.mark(labels.getEndLabel());
 
-			if (finallyNode != null) {
-				mBuilder.goTo(labels.getFinallyLabel());
-			}
 			mBuilder.goTo(mergeLabel);
 
 			// catch blocks
@@ -968,6 +965,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<SyntaxTreeAsmVisitor> implem
 				mBuilder.mark(labels.getFinallyLabel());
 				visit(finallyNode);
 			}
+
 			mBuilder.getTryLabels().pop();
 
 			mBuilder.mark(mergeLabel);
@@ -1030,6 +1028,11 @@ public class ScriptCompilerAsm extends TreeVisitor2<SyntaxTreeAsmVisitor> implem
 	public class Return extends Undefined {
 		@Override
 		public void acceptAsm(TypedTree node) {
+			if (mBuilder.getTryLabels().peek() != null) {
+				mBuilder.storeReturnAddr();
+				mBuilder.jumpToFinally();
+				mBuilder.returnFromFinally();
+			}
 			if (node.has(_expr)) {
 				visit(node.get(_expr));
 			}
