@@ -936,38 +936,44 @@ public class ScriptCompilerAsm extends TreeVisitor2<SyntaxTreeAsmVisitor> implem
 			mBuilder.getTryLabels().push(labels);
 			Label mergeLabel = mBuilder.newLabel();
 
+			labels.setFinallyNode(finallyNode);
+
 			// try block
 			mBuilder.mark(labels.getStartLabel());
 			visit(node.get(_try));
 			mBuilder.mark(labels.getEndLabel());
 
 			if (finallyNode != null) {
-				mBuilder.goTo(labels.getFinallyLabel());
+				// mBuilder.jumpToFinally();
+				visit(mBuilder.getFinallyNode());
 			}
 			mBuilder.goTo(mergeLabel);
 
 			// catch blocks
 			for (TypedTree catchNode : node.get(_catch)) {
-				// Class<?> exceptionType = null;
-				if (catchNode.has(_type)) {
-					// TODO("THIS MUST BE RESOLVED IN TYPECHECKER");
-					// exceptionType = resolveClass(catchNode.get(_type), null);
-					// exceptionType = catchNode.get(_name).getClassType();
-				}
 				Class<?> exceptionType = catchNode.get(_name).getClassType();
 				mBuilder.catchException(labels.getStartLabel(), labels.getEndLabel(), Type.getType(exceptionType));
 				mBuilder.enterScope();
 				mBuilder.createNewVarAndStore(catchNode.getText(_name, null), exceptionType);
 				visit(catchNode.get(_body));
-				mBuilder.exitScope();
+				if (finallyNode != null) {
+					// mBuilder.jumpToFinally();
+					visit(mBuilder.getFinallyNode());
+				}
 				mBuilder.goTo(mergeLabel);
+				mBuilder.exitScope();
 			}
 
 			// finally block
-			if (finallyNode != null) {
-				mBuilder.mark(labels.getFinallyLabel());
-				visit(finallyNode);
-			}
+			// if (finallyNode != null) {
+			// mBuilder.mark(labels.getFinallyLabel());
+			// mBuilder.enterScope();
+			// mBuilder.storeReturnAddr();
+			// visit(finallyNode);
+			// mBuilder.returnFromFinally();
+			// mBuilder.exitScope();
+			// }
+
 			mBuilder.getTryLabels().pop();
 
 			mBuilder.mark(mergeLabel);
@@ -1033,6 +1039,10 @@ public class ScriptCompilerAsm extends TreeVisitor2<SyntaxTreeAsmVisitor> implem
 			if (node.has(_expr)) {
 				visit(node.get(_expr));
 			}
+			// mBuilder.jumpToMultipleFinally();
+			for (TypedTree finallyNode : mBuilder.getMultipleFinallyNode()) {
+				visit(finallyNode);
+			}
 			mBuilder.returnValue();
 		}
 	}
@@ -1041,7 +1051,10 @@ public class ScriptCompilerAsm extends TreeVisitor2<SyntaxTreeAsmVisitor> implem
 		@Override
 		public void acceptAsm(TypedTree node) {
 			Label breakLabel = mBuilder.getLoopLabels().peek().getLeft();
-			mBuilder.jumpToMultipleFinally();
+			// mBuilder.jumpToMultipleFinally();
+			for (TypedTree finallyNode : mBuilder.getMultipleFinallyNode()) {
+				visit(finallyNode);
+			}
 			mBuilder.goTo(breakLabel);
 		}
 	}
@@ -1050,7 +1063,10 @@ public class ScriptCompilerAsm extends TreeVisitor2<SyntaxTreeAsmVisitor> implem
 		@Override
 		public void acceptAsm(TypedTree node) {
 			Label continueLabel = mBuilder.getLoopLabels().peek().getRight();
-			mBuilder.jumpToMultipleFinally();
+			// mBuilder.jumpToMultipleFinally();
+			for (TypedTree finallyNode : mBuilder.getMultipleFinallyNode()) {
+				visit(finallyNode);
+			}
 			mBuilder.goTo(continueLabel);
 		}
 	}

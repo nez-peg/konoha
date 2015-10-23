@@ -1,7 +1,10 @@
 package konoha.asm;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
+
+import konoha.script.TypedTree;
 
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Label;
@@ -43,7 +46,7 @@ public class MethodBuilder extends GeneratorAdapter {
 	Method method;
 
 	public MethodBuilder(int accessFlag, Method method, ClassVisitor cv) {
-		super(Opcodes.ASM4, toMethodVisitor(accessFlag, method, cv), accessFlag, method.getName(), method.getDescriptor());
+		super(Opcodes.ASM5, toMethodVisitor(accessFlag, method, cv), accessFlag, method.getName(), method.getDescriptor());
 		this.loopLabels = new ArrayDeque<>();
 		this.tryLabels = new ArrayDeque<>();
 		int startIndex = 0;
@@ -71,6 +74,7 @@ public class MethodBuilder extends GeneratorAdapter {
 		MethodVisitor visitor = cv.visitMethod(access, method.getName(), method.getDescriptor(), null, null);
 		JSRInlinerAdapter inlinerAdapter = new JSRInlinerAdapter(visitor, access, method.getName(), method.getDescriptor(), null, null);
 		return inlinerAdapter;
+		// return visitor;
 	}
 
 	/**
@@ -128,6 +132,26 @@ public class MethodBuilder extends GeneratorAdapter {
 		for (TryCatchLabel label : this.tryLabels) {
 			this.jumpToFinally(label);
 		}
+	}
+
+	private TypedTree getFinallyNode(TryCatchLabel label) {
+		return label.getFinallyNode();
+	}
+
+	public TypedTree getFinallyNode() {
+		return this.getFinallyNode(this.tryLabels.peek());
+	}
+
+	public TypedTree[] getMultipleFinallyNode() {
+		ArrayList<TypedTree> finallyNodeList = new ArrayList<>();
+		for (TryCatchLabel label : this.tryLabels) {
+			TypedTree finallyNode = this.getFinallyNode(label);
+			if (finallyNode != null) {
+				finallyNodeList.add(finallyNode);
+			}
+		}
+		TypedTree[] finallyNodes = new TypedTree[finallyNodeList.size()];
+		return finallyNodeList.toArray(finallyNodes);
 	}
 
 	/**
