@@ -3,9 +3,18 @@ package konoha.syntax;
 import java.lang.reflect.Type;
 
 import konoha.message.Message;
+import konoha.script.ScriptContext;
 import konoha.script.SyntaxTree;
 
 public class BigInteger extends SyntaxExtension {
+
+	public static void hack(ScriptContext context) {
+		context.addSyntaxExtension(new BigInteger(context));
+	}
+
+	public BigInteger(ScriptContext context) {
+		super(context);
+	}
 
 	@Override
 	public String getName() {

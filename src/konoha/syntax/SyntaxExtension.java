@@ -3,26 +3,24 @@ package konoha.syntax;
 import java.lang.reflect.Type;
 
 import konoha.asm.TreeAsm;
-import konoha.hack.Hacker;
 import konoha.script.CommonSymbols;
 import konoha.script.ScriptContext;
+import konoha.script.SyntaxTree;
 import konoha.script.TreeChecker;
 import konoha.script.TreeDesugar;
 import konoha.script.TreeEvaluator;
 import konoha.script.TypeChecker;
 import konoha.script.TypeSystem;
-import konoha.script.SyntaxTree;
 
-public abstract class SyntaxExtension extends Hacker implements TreeChecker, TreeDesugar, TreeEvaluator, TreeAsm, CommonSymbols {
+public abstract class SyntaxExtension implements TreeChecker, TreeDesugar, TreeEvaluator, TreeAsm, CommonSymbols {
 
 	protected ScriptContext context;
 	protected TypeSystem typeSystem;
 	protected TypeChecker checker;
 
-	@Override
-	public void perform(ScriptContext context, TypeSystem typeSystem) {
+	public SyntaxExtension(ScriptContext context) {
 		this.context = context;
-		this.typeSystem = typeSystem;
+		this.typeSystem = context.getTypeSystem();
 		this.checker = context.getTypeChecker();
 	}
 

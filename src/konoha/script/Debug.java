@@ -15,8 +15,8 @@ public class Debug {
 		ConsoleUtils.println("DEBUG: " + String.format(fmt, args));
 	}
 
-	public static void traceException(IllegalAccessException e) {
-		System.err.println(e);
+	public static void traceException(Throwable e) {
+		e.printStackTrace();
 	}
 
 }

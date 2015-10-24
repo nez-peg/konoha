@@ -3,12 +3,10 @@ package konoha.hack;
 import konoha.main.ConsoleUtils;
 import konoha.message.Message;
 import konoha.script.ScriptContext;
-import konoha.script.TypeSystem;
 
-public class Messages extends Hacker {
+public class Messages {
 
-	@Override
-	public void perform(ScriptContext context, TypeSystem typeSystem) {
+	public final static void hack(ScriptContext context) {
 		for (Message m : Message.values()) {
 			ConsoleUtils.println(m.name() + ": " + m.toString());
 		}

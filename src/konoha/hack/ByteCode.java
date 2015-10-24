@@ -1,7 +1,9 @@
 package konoha.hack;
 
+import konoha.script.ScriptContext;
+
 public class ByteCode {
-	static {
-		konoha.asm.ScriptClassLoader.enabledDump = true;
+	public final static void hack(ScriptContext context) {
+		konoha.asm.ScriptClassLoader.enabledDump = !konoha.asm.ScriptClassLoader.enabledDump;
 	}
 }

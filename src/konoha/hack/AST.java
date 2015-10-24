@@ -1,14 +1,10 @@
 package konoha.hack;
 
-import konoha.main.ConsoleUtils;
 import konoha.script.ScriptContext;
-import konoha.script.TypeSystem;
 
-public class AST extends Hacker {
+public class AST {
 
-	@Override
-	public void perform(ScriptContext context, TypeSystem typeSystem) {
+	public final static void hack(ScriptContext context) {
 		context.enableASTDump = !context.enableASTDump;
-		ConsoleUtils.println("turning AST dump: " + context.enableASTDump);
 	}
 }
