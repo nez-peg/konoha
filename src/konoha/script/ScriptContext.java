@@ -5,37 +5,30 @@ import java.lang.reflect.Type;
 
 import konoha.main.ConsoleUtils;
 import konoha.message.Message;
+import konoha.syntax.ScriptContextHacks;
 import nez.Parser;
 import nez.io.SourceContext;
 
-public class ScriptContext {
-	private Parser parser;
-	private TypeSystem typeSystem;
-	private TypeChecker typechecker;
-	private Interpreter interpreter;
+public class ScriptContext extends ScriptContextHacks {
 
 	public ScriptContext(Parser parser) {
-		this.parser = parser;
+		this.setParser(parser);
 		this.typeSystem = new TypeSystem(this);
-		this.typechecker = new TypeChecker(this, typeSystem);
-		this.interpreter = new Interpreter(this, typeSystem);
-		this.set("__lookup__", typeSystem);
+		this.checker = new TypeChecker(this, getTypeSystem());
+		this.eval = new ScriptEvaluator(this, getTypeSystem());
+		this.set("__lookup__", getTypeSystem());
 		// new TypeChecker2();
 	}
 
 	public void setShellMode(boolean b) {
-		this.typeSystem.setShellMode(b);
-	}
-
-	public void setVerboseMode(boolean b) {
-		// this.typeSystem.setVerboseMode(b);
+		this.getTypeSystem().setShellMode(b);
 	}
 
 	public final void load(String path) throws IOException {
 		eval(SourceContext.newFileContext(path));
 	}
 
-	public final Object eval2(String uri, int linenum, String script) {
+	public final Object eval(String uri, int linenum, String script) {
 		return eval(SourceContext.newStringContext(uri, linenum, script));
 	}
 
@@ -51,11 +44,11 @@ public class ScriptContext {
 
 	public final Object eval(SourceContext source) {
 		this.found = ScriptContextError.NoError;
-		TypedTree node = (TypedTree) this.parser.parse(source, new TypedTree());
+		TypedTree node = (TypedTree) this.getParser().parse(source, new TypedTree());
 		if (node == null) {
 			log(source.getErrorMessage("error", Message.SyntaxError.toString()));
 			this.found = ScriptContextError.SyntaxError;
-			return Interpreter.empty; // nothing
+			return ScriptEvaluator.empty; // nothing
 		}
 		if (!node.is(CommonSymbols._Source)) {
 			node = node.newInstance(CommonSymbols._Source, node);
@@ -66,14 +59,14 @@ public class ScriptContext {
 	public boolean enableASTDump = false;
 
 	private Object evalSource(TypedTree node) {
-		Object result = Interpreter.empty;
+		Object result = ScriptEvaluator.empty;
 		for (int i = 0; i < node.size(); i++) {
 			TypedTree sub = node.get(i);
 			if (enableASTDump) {
 				ConsoleUtils.println("[Parsed]");
 				ConsoleUtils.println("    ", sub);
 			}
-			TypedTree typed = typechecker.checkAtTopLevel(sub);
+			TypedTree typed = checker.checkAtTopLevel(sub);
 			if (typed != sub) {
 				node.set(i, typed);
 			}
@@ -82,17 +75,17 @@ public class ScriptContext {
 				ConsoleUtils.println("    ", sub);
 			}
 			if (found == ScriptContextError.NoError) {
-				result = interpreter.visit(typed);
+				result = eval.visit(typed);
 				if (typed.getType() == void.class) {
-					result = Interpreter.empty;
+					result = ScriptEvaluator.empty;
 				}
 			}
 		}
-		return found == ScriptContextError.NoError ? result : Interpreter.empty;
+		return found == ScriptContextError.NoError ? result : ScriptEvaluator.empty;
 	}
 
 	public Object get(String name) {
-		GlobalVariable gv = this.typeSystem.getGlobalVariable(name);
+		GlobalVariable gv = this.getTypeSystem().getGlobalVariable(name);
 		if (gv != null) {
 			return Reflector.getStatic(gv.getField());
 		}
@@ -100,10 +93,10 @@ public class ScriptContext {
 	}
 
 	public void set(String name, Object value) {
-		GlobalVariable gv = this.typeSystem.getGlobalVariable(name);
+		GlobalVariable gv = this.getTypeSystem().getGlobalVariable(name);
 		if (gv == null) {
 			Type type = Reflector.infer(value);
-			gv = this.typeSystem.newGlobalVariable(type, name);
+			gv = this.getTypeSystem().newGlobalVariable(type, name);
 		}
 		Reflector.setStatic(gv.getField(), value);
 	}
@@ -117,6 +110,20 @@ public class ScriptContext {
 		ConsoleUtils.begin(c);
 		ConsoleUtils.println(msg);
 		ConsoleUtils.end();
+	}
+
+	private boolean verboseMode = true;
+
+	public void setVerboseMode(boolean b) {
+		verboseMode = b;
+	}
+
+	public void verbose(String fmt, Object... args) {
+		if (verboseMode) {
+			ConsoleUtils.begin(37);
+			ConsoleUtils.println(String.format(fmt, args));
+			ConsoleUtils.end();
+		}
 	}
 
 }

@@ -96,7 +96,7 @@ public class Main {
 
 			try {
 				ConsoleUtils.begin(32);
-				Object result = sc.eval2("<stdio>", linenum, command);
+				Object result = sc.eval("<stdio>", linenum, command);
 				ConsoleUtils.end();
 				if (!(result instanceof EmptyResult)) {
 					ConsoleUtils.begin(37);

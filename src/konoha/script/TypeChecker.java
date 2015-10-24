@@ -12,7 +12,7 @@ import nez.ast.Symbol;
 import nez.ast.TreeVisitor2;
 import nez.util.StringUtils;
 
-public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements CommonSymbols {
+public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymbols {
 	ScriptContext context;
 	TypeSystem typeSystem;
 
@@ -22,7 +22,7 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 		init(new Undefined());
 	}
 
-	public class Undefined implements SyntaxTreeTypeChecker {
+	public class Undefined implements TreeChecker {
 		@Override
 		public Type acceptType(TypedTree node) {
 			node.formatSourceMessage("error", "unsupproted type rule " + node);
@@ -1351,6 +1351,16 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 		}
 	}
 
+	private boolean isStaticMethod(Functor f) {
+		if (f.ref instanceof Method) {
+			Method m = (Method) f.ref;
+			if (Lang.isStatic(m)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	private boolean isStaticClassMethod(Functor f, int paramSize) {
 		if (f.ref instanceof Method) {
 			Method m = (Method) f.ref;
@@ -1372,12 +1382,13 @@ public class TypeChecker extends TreeVisitor2<SyntaxTreeTypeChecker> implements 
 	private Type typeStaticMethodApply(TypedTree node) {
 		Class<?> staticClass = this.resolveClass(node.get(_recv), null);
 		String name = node.getText(_name, "");
-		Type[] a = this.typeArguments(staticClass, node.get(_param));
+		// Type[] a = this.typeArguments(staticClass, node.get(_param));
+		Type[] a = this.typeArguments(node.get(_param));
 		Functor f = typeSystem.getMethod(methodMatcher, staticClass, name, a);
 		if (f != null) {
-			if (!isStaticClassMethod(f, a.length)) {
+			if (!isStaticMethod(f)) {
 				Functor[] unmatched = { f };
-				return unfound(node, unmatched, "not static method %s::%s", name(staticClass), name);
+				return unfound(node, unmatched, "not static method(%s::%s)", name(staticClass), name);
 			}
 			return found(node, f, methodMatcher, node.get(_param));
 		}

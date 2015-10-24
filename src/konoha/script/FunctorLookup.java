@@ -428,7 +428,6 @@ public class FunctorLookup {
 	}
 
 	public final Functor getMethod(TypeMatcher matcher, Type recvType, String name, Type[] a) {
-		assert (a[0] == recvType);
 		Class<?> c = Lang.toClassType(recvType);
 		matcher.init(recvType);
 		String key = keyMethod(c, name, a);
@@ -439,6 +438,7 @@ public class FunctorLookup {
 		Functor matched = null;
 		for (Functor f : list) {
 			matcher.reset();
+			// System.out.println("f=" + f);
 			if (accept(matcher, f, a)) {
 				symbolCacheMap1.put(key, f);
 				return f;
@@ -454,15 +454,18 @@ public class FunctorLookup {
 	/** accept, match */
 
 	public final static boolean accept(TypeMatcher matcher, Functor f, Type[] a) {
+		// System.out.println("size" + f.size() + ", " + a.length);
 		if (f.size() != a.length) {
 			return false;
 		}
 		for (int j = 0; j < a.length; j++) {
-			if (!accept(matcher, f.get(j), a[j])) {
+			// System.out.println("j=" + j + ", " + f.get(j) + ", " + a[j]);
+			Type t = f.get(j);
+			if (t != a[j] && !accept(matcher, f.get(j), a[j])) {
 				return false;
 			}
 		}
-		return false;
+		return true;
 	}
 
 	public final static boolean accept(TypeMatcher matcher, Type p, Type a) {

@@ -21,7 +21,7 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.GeneratorAdapter;
 import org.objectweb.asm.commons.Method;
 
-public class ScriptCompilerAsm extends TreeVisitor2<SyntaxTreeAsmVisitor> implements CommonSymbols {
+public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSymbols {
 	private TypeSystem typeSystem;
 	private ScriptClassLoader cLoader;
 	private ClassBuilder cBuilder;
@@ -35,7 +35,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<SyntaxTreeAsmVisitor> implem
 		init(new Undefined());
 	}
 
-	public class Undefined implements SyntaxTreeAsmVisitor {
+	public class Undefined implements TreeAsm {
 		@Override
 		public void acceptAsm(TypedTree node) {
 			ConsoleUtils.println(node.formatSourceMessage("error", "unsupproted in ScriptCompiler #" + node));

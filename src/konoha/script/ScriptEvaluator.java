@@ -5,12 +5,12 @@ import konoha.ArrayInt;
 import konoha.asm.ScriptCompiler;
 import nez.ast.TreeVisitor2;
 
-public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements CommonSymbols {
+public class ScriptEvaluator extends TreeVisitor2<TreeEvaluator> implements CommonSymbols {
 	ScriptContext context;
 	TypeSystem typeSystem;
 	private ScriptCompiler compiler;
 
-	public Interpreter(ScriptContext sc, TypeSystem ts) {
+	public ScriptEvaluator(ScriptContext sc, TypeSystem ts) {
 		super();
 		init(new Undefined());
 		this.context = sc;
@@ -18,19 +18,19 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 		this.compiler = new ScriptCompiler(this.typeSystem);
 	}
 
-	static EmptyResult empty = new EmptyResult();
+	public static EmptyResult empty = new EmptyResult();
 
 	public Object visit(TypedTree node) {
-		return find(node).accept(node);
+		return find(node).acceptEval(node);
 	}
 
 	public Object nullEval(TypedTree node) {
 		return (node == null) ? null : visit(node);
 	}
 
-	public class Undefined implements SyntaxTreeInterpreter {
+	public class Undefined implements TreeEvaluator {
 		@Override
-		public Object accept(TypedTree node) {
+		public Object acceptEval(TypedTree node) {
 			context.log("[TODO]: Interperter " + node);
 			return null;
 		}
@@ -38,7 +38,7 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 
 	public class _Functor extends Undefined {
 		@Override
-		public Object accept(TypedTree node) {
+		public Object acceptEval(TypedTree node) {
 			Object[] args = evalApplyArgument(node);
 			return node.getFunctor().eval(node, args);
 		}
@@ -56,14 +56,14 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 
 	public class Const extends Undefined {
 		@Override
-		public Object accept(TypedTree node) {
+		public Object acceptEval(TypedTree node) {
 			return node.getValue();
 		}
 	}
 
 	public class Source extends Undefined {
 		@Override
-		public Object accept(TypedTree node) {
+		public Object acceptEval(TypedTree node) {
 			boolean foundError = false;
 			Object result = empty;
 			for (TypedTree sub : node) {
@@ -83,7 +83,7 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 
 	public class FuncDecl extends Undefined {
 		@Override
-		public Object accept(TypedTree node) {
+		public Object acceptEval(TypedTree node) {
 			Functor f = node.getFunctor();
 			compiler.compileFuncDecl(node, f);
 			return empty;
@@ -92,7 +92,7 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 
 	public class VarDecl extends Undefined {
 		@Override
-		public Object accept(TypedTree node) {
+		public Object acceptEval(TypedTree node) {
 			evalFunctorWithSingleArgument(node, node.getFunctor(), node.get(_expr));
 			return empty;
 		}
@@ -100,7 +100,7 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 
 	public class MultiVarDecl extends Undefined {
 		@Override
-		public Object accept(TypedTree node) {
+		public Object acceptEval(TypedTree node) {
 			for (TypedTree sub : node.get(_list)) {
 				evalFunctorWithSingleArgument(sub, sub.getFunctor(), sub.get(_expr));
 			}
@@ -110,7 +110,7 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 
 	public class ClassDecl extends Undefined {
 		@Override
-		public Object accept(TypedTree node) {
+		public Object acceptEval(TypedTree node) {
 			compiler.compileClassDecl(node);
 			return empty;
 		}
@@ -120,7 +120,7 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 
 	public class Block extends Undefined {
 		@Override
-		public Object accept(TypedTree node) {
+		public Object acceptEval(TypedTree node) {
 			Object retVal = null;
 			for (TypedTree child : node) {
 				retVal = visit(child);
@@ -131,7 +131,7 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 
 	public class If extends Undefined {
 		@Override
-		public Object accept(TypedTree node) {
+		public Object acceptEval(TypedTree node) {
 			boolean cond = (Boolean) visit(node.get(_cond));
 			if (cond) {
 				return visit(node.get(_then));
@@ -148,7 +148,7 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 	/* Expression Statement */
 	public class Expression extends Undefined {
 		@Override
-		public Object accept(TypedTree node) {
+		public Object acceptEval(TypedTree node) {
 			if (node.getType() == void.class) {
 				visit(node.get(0));
 				return empty;
@@ -159,7 +159,7 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 
 	public class Empty extends Undefined {
 		@Override
-		public Object accept(TypedTree node) {
+		public Object acceptEval(TypedTree node) {
 			return empty;
 		}
 	}
@@ -168,7 +168,7 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 
 	public class Cast extends Undefined {
 		@Override
-		public Object accept(TypedTree node) {
+		public Object acceptEval(TypedTree node) {
 			Object v = visit(node.get(_expr));
 			Class<?> c = node.getClassType();
 			return c.cast(v);
@@ -177,7 +177,7 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 
 	public class Conditional extends Undefined {
 		@Override
-		public Object accept(TypedTree node) {
+		public Object acceptEval(TypedTree node) {
 			Boolean v = (Boolean) visit(node.get(_cond));
 			if (v) {
 				return visit(node.get(_then));
@@ -190,7 +190,7 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 
 	public class InstanceOf extends Undefined {
 		@Override
-		public Object accept(TypedTree node) {
+		public Object acceptEval(TypedTree node) {
 			Object v = visit(node.get(_left));
 			if (v == null) {
 				return false;
@@ -201,7 +201,7 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 
 	public class Inc extends Undefined {
 		@Override
-		public Object accept(TypedTree node) {
+		public Object acceptEval(TypedTree node) {
 			Object v = visit(node.get(_expr));
 			visit(node.get(_body));
 			return v;
@@ -210,7 +210,7 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 
 	public class Dec extends Undefined {
 		@Override
-		public Object accept(TypedTree node) {
+		public Object acceptEval(TypedTree node) {
 			Object v = visit(node.get(_expr));
 			visit(node.get(_body));
 			return v;
@@ -227,7 +227,7 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 
 	public class And extends Undefined {
 		@Override
-		public Object accept(TypedTree node) {
+		public Object acceptEval(TypedTree node) {
 			Boolean b = (Boolean) visit(node.get(_left));
 			if (b) {
 				return visit(node.get(_right));
@@ -238,7 +238,7 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 
 	public class Or extends Undefined {
 		@Override
-		public Object accept(TypedTree node) {
+		public Object acceptEval(TypedTree node) {
 			Boolean b = (Boolean) visit(node.get(_left));
 			if (!b) {
 				return visit(node.get(_right));
@@ -249,14 +249,14 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 
 	public class Null extends Undefined {
 		@Override
-		public Object accept(TypedTree node) {
+		public Object acceptEval(TypedTree node) {
 			return null;
 		}
 	}
 
 	public class NullCheck extends Undefined {
 		@Override
-		public Object accept(TypedTree node) {
+		public Object acceptEval(TypedTree node) {
 			if (node.getValue() != null) {
 				return node.getValue();
 			}
@@ -266,7 +266,7 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 
 	public class NonNullCheck extends Undefined {
 		@Override
-		public Object accept(TypedTree node) {
+		public Object acceptEval(TypedTree node) {
 			if (node.getValue() != null) {
 				return node.getValue();
 			}
@@ -276,7 +276,7 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 
 	public class _Array extends Undefined {
 		@Override
-		public Object accept(TypedTree node) {
+		public Object acceptEval(TypedTree node) {
 			Object a = evalArray(node);
 			if (Lang.isNativeArray(node.getType())) {
 				return a;
@@ -298,7 +298,7 @@ public class Interpreter extends TreeVisitor2<SyntaxTreeInterpreter> implements 
 
 	public class NewArray extends Undefined {
 		@Override
-		public Object accept(TypedTree node) {
+		public Object acceptEval(TypedTree node) {
 			int size = (Integer) visit(node.get(_size));
 			Class<?> atype = Lang.getArrayElementClass(node.getType());
 			Object a = java.lang.reflect.Array.newInstance(atype, size);

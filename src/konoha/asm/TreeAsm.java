@@ -2,7 +2,7 @@ package konoha.asm;
 
 import konoha.script.TypedTree;
 
-public interface SyntaxTreeAsmVisitor {
+public interface TreeAsm {
 	public void acceptAsm(TypedTree node);
 
 }

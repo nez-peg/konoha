@@ -222,7 +222,7 @@ public class Functor {
 	public final Object eval(TypedTree node, Object... args) {
 		try {
 			Object v = evalIndy(args);
-			return node.getType() == void.class ? Interpreter.empty : v;
+			return node.getType() == void.class ? ScriptEvaluator.empty : v;
 		} catch (Throwable e) {
 			if (e instanceof Error) {
 				throw (Error) e;
