@@ -4,6 +4,7 @@ import java.lang.reflect.Type;
 
 import konoha.asm.TreeAsm;
 import konoha.hack.Hacker;
+import konoha.script.CommonSymbols;
 import konoha.script.ScriptContext;
 import konoha.script.TreeChecker;
 import konoha.script.TreeDesugar;
@@ -12,15 +13,11 @@ import konoha.script.TypeChecker;
 import konoha.script.TypeSystem;
 import konoha.script.TypedTree;
 
-public class SyntaxExtension extends Hacker implements TreeChecker, TreeDesugar, TreeEvaluator, TreeAsm {
+public abstract class SyntaxExtension extends Hacker implements TreeChecker, TreeDesugar, TreeEvaluator, TreeAsm, CommonSymbols {
 
 	protected ScriptContext context;
 	protected TypeSystem typeSystem;
 	protected TypeChecker checker;
-
-	public SyntaxExtension(ScriptContext context) {
-		this.perform(context, context.getTypeSystem());
-	}
 
 	@Override
 	public void perform(ScriptContext context, TypeSystem typeSystem) {
@@ -29,11 +26,10 @@ public class SyntaxExtension extends Hacker implements TreeChecker, TreeDesugar,
 		this.checker = context.getTypeChecker();
 	}
 
+	public abstract String getName();
+
 	@Override
-	public Type acceptType(TypedTree node) {
-		// TODO Auto-generated method stub
-		return null;
-	}
+	public abstract Type acceptType(TypedTree node);
 
 	@Override
 	public TypedTree acceptDesugar(TypedTree node) {
