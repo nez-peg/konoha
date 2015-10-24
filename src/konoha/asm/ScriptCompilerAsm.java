@@ -417,7 +417,9 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 		for (SyntaxTree stmt : node) {
 			mBuilder.setLineNum(node.getLineNum()); // FIXME
 			visit(stmt);
-			if (stmt.getType() != void.class) {
+			if (stmt.getType() == null) {
+				// TypeError
+			} else if (stmt.getType() != void.class) {
 				mBuilder.pop(stmt.getClassType());
 			}
 		}
@@ -960,8 +962,8 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 					// mBuilder.jumpToFinally();
 					visit(mBuilder.getFinallyNode());
 				}
-				mBuilder.goTo(mergeLabel);
 				mBuilder.exitScope();
+				mBuilder.goTo(mergeLabel);
 			}
 
 			// finally block
