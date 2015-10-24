@@ -217,7 +217,7 @@ public class TypeSystem extends FunctorLookup implements CommonSymbols {
 		}
 	}
 
-	public Functor newPrototype(TypedTree node, Type returnType, String name, Type[] paramTypes) {
+	public Functor newPrototype(SyntaxTree node, Type returnType, String name, Type[] paramTypes) {
 		Functor f = this.compl.newPrototypeFunction(node, returnType, name, paramTypes);
 		this.addSymbolFunctor(f);
 		return f;

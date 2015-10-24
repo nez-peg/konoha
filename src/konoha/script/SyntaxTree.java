@@ -7,55 +7,55 @@ import nez.ast.Symbol;
 import nez.ast.Tree;
 import nez.util.UList;
 
-public class TypedTree extends Tree<TypedTree> {
+public class SyntaxTree extends Tree<SyntaxTree> {
 	Type type;
 
 	// Method resolvedMethod;
 
-	TypedTree() {
+	SyntaxTree() {
 		super();
 	}
 
-	public TypedTree(Symbol tag, Source source, long pos, int len, int size, Object value) {
-		super(tag, source, pos, len, size > 0 ? new TypedTree[size] : null, value);
+	public SyntaxTree(Symbol tag, Source source, long pos, int len, int size, Object value) {
+		super(tag, source, pos, len, size > 0 ? new SyntaxTree[size] : null, value);
 	}
 
 	@Override
-	protected TypedTree newInstance(Symbol tag, Source source, long pos, int len, int objectsize, Object value) {
-		return new TypedTree(tag, source, pos, len, objectsize, value);
+	protected SyntaxTree newInstance(Symbol tag, Source source, long pos, int len, int objectsize, Object value) {
+		return new SyntaxTree(tag, source, pos, len, objectsize, value);
 	}
 
 	@Override
 	protected void link(int n, Symbol label, Object child) {
-		this.set(n, label, (TypedTree) child);
+		this.set(n, label, (SyntaxTree) child);
 	}
 
 	@Override
-	public TypedTree newInstance(Symbol tag, int size, Object value) {
-		return new TypedTree(tag, this.getSource(), this.getSourcePosition(), 0, size, value);
+	public SyntaxTree newInstance(Symbol tag, int size, Object value) {
+		return new SyntaxTree(tag, this.getSource(), this.getSourcePosition(), 0, size, value);
 	}
 
-	public TypedTree newInstance(Symbol tag, TypedTree... sub) {
-		TypedTree t = new TypedTree(tag, this.getSource(), this.getSourcePosition(), 0, 0, null);
+	public SyntaxTree newInstance(Symbol tag, SyntaxTree... sub) {
+		SyntaxTree t = new SyntaxTree(tag, this.getSource(), this.getSourcePosition(), 0, 0, null);
 		t.makeFlattenedList(sub);
 		return t;
 	}
 
-	public TypedTree newInstance(Symbol tag, Symbol l1, TypedTree t1) {
-		TypedTree t = new TypedTree(tag, this.getSource(), this.getSourcePosition(), 0, 0, null);
+	public SyntaxTree newInstance(Symbol tag, Symbol l1, SyntaxTree t1) {
+		SyntaxTree t = new SyntaxTree(tag, this.getSource(), this.getSourcePosition(), 0, 0, null);
 		t.sub(l1, t1);
 		return t;
 	}
 
-	public TypedTree newConst(Type type, Object value) {
-		TypedTree t = new TypedTree(CommonSymbols._Const, this.getSource(), this.getSourcePosition(), 0, 0, value);
+	public SyntaxTree newConst(Type type, Object value) {
+		SyntaxTree t = new SyntaxTree(CommonSymbols._Const, this.getSource(), this.getSourcePosition(), 0, 0, value);
 		t.setConst(type, value);
 		return t;
 	}
 
 	@Override
-	protected TypedTree dupImpl() {
-		TypedTree t = new TypedTree(this.getTag(), this.getSource(), this.getSourcePosition(), this.getLength(), this.size(), getValue());
+	protected SyntaxTree dupImpl() {
+		SyntaxTree t = new SyntaxTree(this.getTag(), this.getSource(), this.getSourcePosition(), this.getLength(), this.size(), getValue());
 		t.type = this.type;
 		return t;
 	}
@@ -106,11 +106,11 @@ public class TypedTree extends Tree<TypedTree> {
 
 	/* Tree Manipulation */
 
-	public void makeFlattenedList(TypedTree... trees) {
-		UList<TypedTree> l = new UList<TypedTree>(new TypedTree[4]);
-		for (TypedTree t : trees) {
+	public void makeFlattenedList(SyntaxTree... trees) {
+		UList<SyntaxTree> l = new UList<SyntaxTree>(new SyntaxTree[4]);
+		for (SyntaxTree t : trees) {
 			if (t.is(CommonSymbols._List)) {
-				for (TypedTree sub : t) {
+				for (SyntaxTree sub : t) {
 					l.add(sub);
 				}
 			} else {
@@ -121,8 +121,8 @@ public class TypedTree extends Tree<TypedTree> {
 		this.labels = new Symbol[l.size()];
 	}
 
-	public void add(Symbol l, TypedTree t) {
-		TypedTree[] newTree = new TypedTree[labels.length + 1];
+	public void add(Symbol l, SyntaxTree t) {
+		SyntaxTree[] newTree = new SyntaxTree[labels.length + 1];
 		Symbol[] newLabels = new Symbol[labels.length + 1];
 		if (subTree != null) {
 			System.arraycopy(subTree, 0, newTree, 0, labels.length);
@@ -139,18 +139,18 @@ public class TypedTree extends Tree<TypedTree> {
 		this.labels = EmptyLabels;
 	}
 
-	public void sub(Symbol l1, TypedTree t1) {
-		this.subTree = new TypedTree[] { t1 };
+	public void sub(Symbol l1, SyntaxTree t1) {
+		this.subTree = new SyntaxTree[] { t1 };
 		this.labels = new Symbol[] { l1 };
 	}
 
-	public void sub(Symbol l1, TypedTree t1, Symbol l2, TypedTree t2) {
-		this.subTree = new TypedTree[] { t1, t2 };
+	public void sub(Symbol l1, SyntaxTree t1, Symbol l2, SyntaxTree t2) {
+		this.subTree = new SyntaxTree[] { t1, t2 };
 		this.labels = new Symbol[] { l1, l2 };
 	}
 
-	public void sub(Symbol l1, TypedTree t1, Symbol l2, TypedTree t2, Symbol l3, TypedTree t3) {
-		this.subTree = new TypedTree[] { t1, t2, t3 };
+	public void sub(Symbol l1, SyntaxTree t1, Symbol l2, SyntaxTree t2, Symbol l3, SyntaxTree t3) {
+		this.subTree = new SyntaxTree[] { t1, t2, t3 };
 		this.labels = new Symbol[] { l1, l2, l3 };
 	}
 

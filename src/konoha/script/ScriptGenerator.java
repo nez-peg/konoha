@@ -7,33 +7,33 @@ public class ScriptGenerator extends TreeVisitor implements CommonSymbols {
 	private ScriptBuilder builder;
 
 	public ScriptGenerator() {
-		super(TypedTree.class);
+		super(SyntaxTree.class);
 		this.builder = new ScriptBuilder();
 		// this.context = context;
 	}
 
-	public void generate(TypedTree node) {
+	public void generate(SyntaxTree node) {
 
 	}
 
-	public void visit(TypedTree node) {
+	public void visit(SyntaxTree node) {
 		visit("visit", node);
 	}
 
 	/* TopLevel */
 
-	public void visitSource(TypedTree node) {
-		for (TypedTree sub : node) {
+	public void visitSource(SyntaxTree node) {
+		for (SyntaxTree sub : node) {
 			visit(sub);
 		}
 	}
 
-	public void visitImport(TypedTree node) {
+	public void visitImport(SyntaxTree node) {
 
 	}
 
-	private void join(StringBuilder sb, TypedTree node) {
-		TypedTree prefix = node.get(_prefix);
+	private void join(StringBuilder sb, SyntaxTree node) {
+		SyntaxTree prefix = node.get(_prefix);
 		if (prefix.size() == 2) {
 			join(sb, prefix);
 		} else {
@@ -44,31 +44,31 @@ public class ScriptGenerator extends TreeVisitor implements CommonSymbols {
 
 	/* FuncDecl */
 
-	public void visitFuncDecl(TypedTree node) {
+	public void visitFuncDecl(SyntaxTree node) {
 		// String name = node.getText(_name, null);
 		// TypedTree bodyNode = node.get(_body, null);
 	}
 
-	public void visitReturn(TypedTree node) {
+	public void visitReturn(SyntaxTree node) {
 		this.builder.push("return");
 		this.visit(node.get(_expr));
 	}
 
 	/* Statement */
 
-	public void visitBlock(TypedTree node) {
+	public void visitBlock(SyntaxTree node) {
 		this.builder.openBlock("{");
 		this.visitStatementList(node);
 		this.builder.closeBlock("}");
 	}
 
-	public void visitStatementList(TypedTree node) {
-		for (TypedTree sub : node) {
+	public void visitStatementList(SyntaxTree node) {
+		for (SyntaxTree sub : node) {
 			this.visit(sub);
 		}
 	}
 
-	public void visitStatement(TypedTree node) {
+	public void visitStatement(SyntaxTree node) {
 		if (node.is(_Block)) {
 			visitBlock(node);
 		} else {
@@ -78,7 +78,7 @@ public class ScriptGenerator extends TreeVisitor implements CommonSymbols {
 		}
 	}
 
-	public void visitIf(TypedTree node) {
+	public void visitIf(SyntaxTree node) {
 		this.builder.beginStatement("if");
 		this.builder.push("(");
 		this.visit(node.get(_cond));
@@ -92,7 +92,7 @@ public class ScriptGenerator extends TreeVisitor implements CommonSymbols {
 		}
 	}
 
-	public void visitConditional(TypedTree node) {
+	public void visitConditional(SyntaxTree node) {
 		this.visit(node.get(_cond));
 		this.builder.push("?");
 		this.visit(node.get(_then));
@@ -100,7 +100,7 @@ public class ScriptGenerator extends TreeVisitor implements CommonSymbols {
 		this.visit(node.get(_else));
 	}
 
-	public void visitWhile(TypedTree node) {
+	public void visitWhile(SyntaxTree node) {
 		this.builder.beginStatement("while");
 		this.builder.push("(");
 		this.visit(node.get(_cond));
@@ -108,17 +108,17 @@ public class ScriptGenerator extends TreeVisitor implements CommonSymbols {
 		this.visitStatement(node.get(_then));
 	}
 
-	public void visitContinue(TypedTree node) {
+	public void visitContinue(SyntaxTree node) {
 		this.builder.beginStatement("continue");
 		this.builder.endStatement(";");
 	}
 
-	public void visitBreak(TypedTree node) {
+	public void visitBreak(SyntaxTree node) {
 		this.builder.beginStatement("break");
 		this.builder.endStatement(";");
 	}
 
-	public void visitFor(TypedTree node) {
+	public void visitFor(SyntaxTree node) {
 		// if (inFunction()) {
 		// this.function.beginLocalVarScope();
 		// }
@@ -138,7 +138,7 @@ public class ScriptGenerator extends TreeVisitor implements CommonSymbols {
 		// return void.class;
 	}
 
-	public void visitForEach(TypedTree node) {
+	public void visitForEach(SyntaxTree node) {
 		// Type req_t = null;
 		// if (node.has(_type)) {
 		// req_t = this.typeSystem.resolveType(node.get(_type), null);
@@ -156,11 +156,11 @@ public class ScriptGenerator extends TreeVisitor implements CommonSymbols {
 		// return void.class;
 	}
 
-	public void visitVarDecl(TypedTree node) {
+	public void visitVarDecl(SyntaxTree node) {
 	}
 
 	/* StatementExpression */
-	public void visitExpression(TypedTree node) {
+	public void visitExpression(SyntaxTree node) {
 		this.builder.beginStatement("");
 		this.visit(node.get(_expr));
 		this.builder.beginStatement("");
@@ -168,12 +168,12 @@ public class ScriptGenerator extends TreeVisitor implements CommonSymbols {
 
 	/* Expression */
 
-	public void visitName(TypedTree node) {
+	public void visitName(SyntaxTree node) {
 		String name = node.toText();
 		this.builder.push(name);
 	}
 
-	public void visitAssign(TypedTree node) {
+	public void visitAssign(SyntaxTree node) {
 		this.visit(node.get(_left));
 		this.builder.push("=");
 		this.visit(node.get(_right));
@@ -181,21 +181,21 @@ public class ScriptGenerator extends TreeVisitor implements CommonSymbols {
 
 	/* Expression */
 
-	public void visitCast(TypedTree node) {
+	public void visitCast(SyntaxTree node) {
 		this.visit(node.get(_expr));
 	}
 
-	public void visitField(TypedTree node) {
+	public void visitField(SyntaxTree node) {
 		this.visit(node.get(_left));
 		this.builder.write(",");
 		this.visit(node.get(_right));
 	}
 
-	public void visitIndexer(TypedTree node) {
+	public void visitIndexer(SyntaxTree node) {
 
 	}
 
-	public void visitApply(TypedTree node) {
+	public void visitApply(SyntaxTree node) {
 	}
 
 	// private Type[] visitArguments(TypedTree args) {
@@ -206,206 +206,206 @@ public class ScriptGenerator extends TreeVisitor implements CommonSymbols {
 	// return types;
 	// }
 
-	public void visitMethodApply(TypedTree node) {
+	public void visitMethodApply(SyntaxTree node) {
 
 	}
 
-	private void visitUnary(TypedTree node, String name) {
+	private void visitUnary(SyntaxTree node, String name) {
 		this.builder.write(name);
 		this.visit(node.get(_expr));
 	}
 
-	private void visitBinary(TypedTree node, String name) {
+	private void visitBinary(SyntaxTree node, String name) {
 		this.visit(node.get(_left));
 		this.builder.push(name);
 		this.visit(node.get(_right));
 	}
 
-	public void visitAnd(TypedTree node) {
+	public void visitAnd(SyntaxTree node) {
 		this.visitBinary(node, "and");
 	}
 
-	public void visitOr(TypedTree node) {
+	public void visitOr(SyntaxTree node) {
 		this.visitBinary(node, "or");
 	}
 
-	public void visitNot(TypedTree node) {
+	public void visitNot(SyntaxTree node) {
 		this.visitUnary(node, "not ");
 	}
 
-	public void visitAdd(TypedTree node) {
+	public void visitAdd(SyntaxTree node) {
 		this.visitBinary(node, "+");
 	}
 
-	public void visitSub(TypedTree node) {
+	public void visitSub(SyntaxTree node) {
 		this.visitBinary(node, "-");
 	}
 
-	public void visitMul(TypedTree node) {
+	public void visitMul(SyntaxTree node) {
 		this.visitBinary(node, "*");
 	}
 
-	public void visitDiv(TypedTree node) {
+	public void visitDiv(SyntaxTree node) {
 		this.visitBinary(node, "/");
 	}
 
-	public void visitPlus(TypedTree node) {
+	public void visitPlus(SyntaxTree node) {
 		this.visitUnary(node, "+");
 	}
 
-	public void visitMinus(TypedTree node) {
+	public void visitMinus(SyntaxTree node) {
 		this.visitUnary(node, "-");
 	}
 
-	public void visitEquals(TypedTree node) {
+	public void visitEquals(SyntaxTree node) {
 		this.visitBinary(node, "==");
 	}
 
-	public void visitNotEquals(TypedTree node) {
+	public void visitNotEquals(SyntaxTree node) {
 		this.visitBinary(node, "!=");
 	}
 
-	public void visitLessThan(TypedTree node) {
+	public void visitLessThan(SyntaxTree node) {
 		this.visitBinary(node, "<");
 	}
 
-	public void visitLessThanEquals(TypedTree node) {
+	public void visitLessThanEquals(SyntaxTree node) {
 		this.visitBinary(node, "<=");
 	}
 
-	public void visitGreaterThan(TypedTree node) {
+	public void visitGreaterThan(SyntaxTree node) {
 		this.visitBinary(node, ">");
 	}
 
-	public void visitGreaterThanEquals(TypedTree node) {
+	public void visitGreaterThanEquals(SyntaxTree node) {
 		this.visitBinary(node, ">=");
 	}
 
-	public void visitLeftShift(TypedTree node) {
+	public void visitLeftShift(SyntaxTree node) {
 		this.visitBinary(node, "<<");
 	}
 
-	public void visitRightShift(TypedTree node) {
+	public void visitRightShift(SyntaxTree node) {
 		this.visitBinary(node, ">>");
 	}
 
-	public void visitLogicalRightShift(TypedTree node) {
+	public void visitLogicalRightShift(SyntaxTree node) {
 		this.visitBinary(node, ">>>");
 	}
 
-	public void visitBitwiseAnd(TypedTree node) {
+	public void visitBitwiseAnd(SyntaxTree node) {
 		this.visitBinary(node, "&");
 	}
 
-	public void visitBitwiseOr(TypedTree node) {
+	public void visitBitwiseOr(SyntaxTree node) {
 		this.visitBinary(node, "|");
 	}
 
-	public void visitBitwiseXor(TypedTree node) {
+	public void visitBitwiseXor(SyntaxTree node) {
 		this.visitBinary(node, "^");
 	}
 
-	public void visitCompl(TypedTree node) {
+	public void visitCompl(SyntaxTree node) {
 		this.visitUnary(node, "~");
 	}
 
-	public void visitNull(TypedTree node) {
+	public void visitNull(SyntaxTree node) {
 		this.builder.push("None");
 	}
 
-	public void visitTrue(TypedTree node) {
+	public void visitTrue(SyntaxTree node) {
 		this.builder.push("True");
 	}
 
-	public void visitFalse(TypedTree node) {
+	public void visitFalse(SyntaxTree node) {
 		this.builder.push("False");
 	}
 
-	public void visitShort(TypedTree node) {
+	public void visitShort(SyntaxTree node) {
 		// return typeInteger(node);
 	}
 
-	public void visitInteger(TypedTree node) {
+	public void visitInteger(SyntaxTree node) {
 		// return node.setConst(int.class, 0);
 	}
 
-	public void visitLong(TypedTree node) {
+	public void visitLong(SyntaxTree node) {
 
 	}
 
-	public void visitFloat(TypedTree node) {
+	public void visitFloat(SyntaxTree node) {
 
 	}
 
-	public void visitDouble(TypedTree node) {
+	public void visitDouble(SyntaxTree node) {
 
 	}
 
-	public void visitText(TypedTree node) {
+	public void visitText(SyntaxTree node) {
 		// return node.setConst(String.class, node.toText());
 	}
 
-	public void visitString(TypedTree node) {
+	public void visitString(SyntaxTree node) {
 		// String t = node.toText();
 		// return node.setConst(String.class, StringUtils.unquoteString(t));
 	}
 
-	public void visitCharacter(TypedTree node) {
+	public void visitCharacter(SyntaxTree node) {
 
 	}
 
-	public void visitInterpolation(TypedTree node) {
+	public void visitInterpolation(SyntaxTree node) {
 
 	}
 
 	/* array */
 
-	public void visitArray(TypedTree node) {
+	public void visitArray(SyntaxTree node) {
 	}
 
 	// Syntax Sugar
 
-	public void visitAssignAdd(TypedTree node) {
+	public void visitAssignAdd(SyntaxTree node) {
 		this.visitBinary(node, "+=");
 	}
 
-	public void visitAssignSub(TypedTree node) {
+	public void visitAssignSub(SyntaxTree node) {
 		this.visitBinary(node, "-=");
 	}
 
-	public void visitAssignMul(TypedTree node) {
+	public void visitAssignMul(SyntaxTree node) {
 		this.visitBinary(node, "*=");
 	}
 
-	public void visitAssignDiv(TypedTree node) {
+	public void visitAssignDiv(SyntaxTree node) {
 		this.visitBinary(node, "/=");
 	}
 
-	public void visitAssignMod(TypedTree node) {
+	public void visitAssignMod(SyntaxTree node) {
 		this.visitBinary(node, "%=");
 	}
 
-	public void visitAssignLeftShift(TypedTree node) {
+	public void visitAssignLeftShift(SyntaxTree node) {
 		this.visitBinary(node, "<<=");
 	}
 
-	public void visitAssignRightShift(TypedTree node) {
+	public void visitAssignRightShift(SyntaxTree node) {
 		this.visitBinary(node, ">>=");
 	}
 
-	public void visitAssignLogicalRightShift(TypedTree node) {
+	public void visitAssignLogicalRightShift(SyntaxTree node) {
 		this.visitBinary(node, ">>>=");
 	}
 
-	public void visitAssignBitwiseAnd(TypedTree node) {
+	public void visitAssignBitwiseAnd(SyntaxTree node) {
 		this.visitBinary(node, "&=");
 	}
 
-	public void visitAssignBitwiseXOr(TypedTree node) {
+	public void visitAssignBitwiseXOr(SyntaxTree node) {
 		this.visitBinary(node, "^=");
 	}
 
-	public void visitAssignBitwiseOr(TypedTree node) {
+	public void visitAssignBitwiseOr(SyntaxTree node) {
 		this.visitBinary(node, "|=");
 	}
 

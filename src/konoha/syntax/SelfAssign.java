@@ -2,7 +2,7 @@ package konoha.syntax;
 
 import java.lang.reflect.Type;
 
-import konoha.script.TypedTree;
+import konoha.script.SyntaxTree;
 import nez.ast.Symbol;
 
 public abstract class SelfAssign extends SyntaxExtension {
@@ -12,8 +12,8 @@ public abstract class SelfAssign extends SyntaxExtension {
 		return this.getClass().getSimpleName();
 	}
 
-	protected Type typeSelfAssignment(TypedTree node, Symbol optag) {
-		TypedTree op = node.newInstance(optag, 0, null);
+	protected Type typeSelfAssignment(SyntaxTree node, Symbol optag) {
+		SyntaxTree op = node.newInstance(optag, 0, null);
 		op.sub(_left, node.get(_left).dup(), _right, node.get(_right));
 		node.set(_right, op);
 		node.setTag(_Assign);

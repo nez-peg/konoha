@@ -2,7 +2,7 @@ package konoha.syntax;
 
 import java.lang.reflect.Type;
 
-import konoha.script.TypedTree;
+import konoha.script.SyntaxTree;
 
 public class RegExp extends SyntaxExtension {
 
@@ -12,7 +12,7 @@ public class RegExp extends SyntaxExtension {
 	}
 
 	@Override
-	public Type acceptType(TypedTree node) {
+	public Type acceptType(SyntaxTree node) {
 		// TODO;;
 		return null;
 	}

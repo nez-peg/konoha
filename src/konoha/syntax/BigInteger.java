@@ -3,7 +3,7 @@ package konoha.syntax;
 import java.lang.reflect.Type;
 
 import konoha.message.Message;
-import konoha.script.TypedTree;
+import konoha.script.SyntaxTree;
 
 public class BigInteger extends SyntaxExtension {
 
@@ -13,7 +13,7 @@ public class BigInteger extends SyntaxExtension {
 	}
 
 	@Override
-	public Type acceptType(TypedTree node) {
+	public Type acceptType(SyntaxTree node) {
 		String n = node.toText().replace("_", "");
 		int radix = 10;
 		if (n.endsWith("L") || n.endsWith("l")) {

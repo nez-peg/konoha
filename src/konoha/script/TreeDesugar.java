@@ -1,5 +1,5 @@
 package konoha.script;
 
 public interface TreeDesugar {
-	public TypedTree acceptDesugar(TypedTree node);
+	public SyntaxTree acceptDesugar(SyntaxTree node);
 }

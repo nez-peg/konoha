@@ -11,7 +11,7 @@ import konoha.script.Functor;
 import konoha.script.Lang;
 import konoha.script.Syntax;
 import konoha.script.TypeSystem;
-import konoha.script.TypedTree;
+import konoha.script.SyntaxTree;
 import nez.ast.Symbol;
 import nez.ast.TreeVisitor2;
 
@@ -37,7 +37,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class Undefined implements TreeAsm {
 		@Override
-		public void acceptAsm(TypedTree node) {
+		public void acceptAsm(SyntaxTree node) {
 			ConsoleUtils.println(node.formatSourceMessage("error", "unsupproted in ScriptCompiler #" + node));
 			visitDefaultValue(node);
 		}
@@ -45,9 +45,9 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class _Functor extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
+		public void acceptAsm(SyntaxTree node) {
 			prepare(node.getFunctor());
-			for (TypedTree sub : node) {
+			for (SyntaxTree sub : node) {
 				visit(sub);
 			}
 			push(node.getFunctor());
@@ -121,18 +121,18 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class Const extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
+		public void acceptAsm(SyntaxTree node) {
 			visitConstantHint(node);
 		}
 	}
 
-	private void visit(TypedTree node) {
+	private void visit(SyntaxTree node) {
 		this.find(node).acceptAsm(node);
 	}
 
 	/* typechecker hints */
 
-	private void visitDefaultValue(TypedTree node) {
+	private void visitDefaultValue(SyntaxTree node) {
 		Class<?> t = node.getClassType();
 		if (t != void.class) {
 			if (t == int.class || t == short.class || t == char.class || t == byte.class) {
@@ -160,7 +160,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 		}
 	}
 
-	private void visitConstantHint(TypedTree node) {
+	private void visitConstantHint(SyntaxTree node) {
 		// assert (node.hint() == Hint.Constant);
 		Object v = node.getValue();
 		if (v instanceof String) {
@@ -183,7 +183,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 		}
 	}
 
-	private void visitDownCastHint(TypedTree node) {
+	private void visitDownCastHint(SyntaxTree node) {
 		visit(node.get(_expr));
 		this.mBuilder.checkCast(Type.getType(node.getClassType()));
 	}
@@ -270,14 +270,14 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 	/* static function */
 	int unique = 0;
 
-	public String nameFunctionClass(TypedTree node, String name) {
+	public String nameFunctionClass(SyntaxTree node, String name) {
 		String path = node.getSource().getResourceName();
 		String cname = "F" + unique + "$" + name;
 		unique++;
 		return cname;
 	}
 
-	public Class<?> compileStaticFuncDecl(String className, TypedTree node) {
+	public Class<?> compileStaticFuncDecl(String className, SyntaxTree node) {
 		this.openClass(className);
 		this.cBuilder.visitSource(node.getSource().getResourceName(), null);
 		unique++;
@@ -287,9 +287,9 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class FuncDecl extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
-			TypedTree nameNode = node.get(_name);
-			TypedTree args = node.get(_param);
+		public void acceptAsm(SyntaxTree node) {
+			SyntaxTree nameNode = node.get(_name);
+			SyntaxTree args = node.get(_param);
 			String name = nameNode.toText();
 			Class<?> returnType = nameNode.getClassType();
 			Class<?>[] paramTypes = new Class<?>[args.size()];
@@ -298,7 +298,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 			}
 			mBuilder = cBuilder.newMethodBuilder(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, returnType, name, paramTypes);
 			mBuilder.enterScope();
-			for (TypedTree arg : args) {
+			for (SyntaxTree arg : args) {
 				mBuilder.defineArgument(arg.getText(_name, null), arg.getClassType());
 			}
 			visit(node.get(_body));
@@ -312,10 +312,10 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 	}
 
 	/* class */
-	public Class<?> compileClass(TypedTree node) {
+	public Class<?> compileClass(SyntaxTree node) {
 		String name = node.getText(_name, null);
-		TypedTree implNode = node.get(_impl, null);
-		TypedTree bodyNode = node.get(_body, null);
+		SyntaxTree implNode = node.get(_impl, null);
+		SyntaxTree bodyNode = node.get(_body, null);
 		Class<?> superClass = null;
 		if (node.has(_super)) {
 			superClass = typeSystem.getType(classPath + node.getText(_super, null)).getClass();
@@ -329,7 +329,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 		}
 		openClass(name, superClass, implClasses);
 		this.cBuilder.visitSource(node.getSource().getResourceName(), null);
-		for (TypedTree n : bodyNode) {
+		for (SyntaxTree n : bodyNode) {
 			visit(n);
 		}
 		return closeClass();
@@ -337,10 +337,10 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class ClassDecl extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
+		public void acceptAsm(SyntaxTree node) {
 			String name = node.getText(_name, null);
-			TypedTree implNode = node.get(_impl, null);
-			TypedTree bodyNode = node.get(_body, null);
+			SyntaxTree implNode = node.get(_impl, null);
+			SyntaxTree bodyNode = node.get(_body, null);
 			Class<?> superClass = null;
 			if (node.has(_super)) {
 				superClass = typeSystem.getType(classPath + node.getText(_super, null)).getClass();
@@ -354,7 +354,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 			}
 			openClass(name, superClass, implClasses);
 			cBuilder.visitSource(node.getSource().getResourceName(), null);
-			for (TypedTree n : bodyNode) {
+			for (SyntaxTree n : bodyNode) {
 				visit(n);
 			}
 			closeClass();
@@ -363,15 +363,15 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class Constructor extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
-			TypedTree args = node.get(_param);
+		public void acceptAsm(SyntaxTree node) {
+			SyntaxTree args = node.get(_param);
 			Class<?>[] paramClasses = new Class<?>[args.size()];
 			for (int i = 0; i < args.size(); i++) {
 				paramClasses[i] = args.get(i).getClassType();
 			}
 			mBuilder = cBuilder.newConstructorBuilder(Opcodes.ACC_PUBLIC, paramClasses);
 			mBuilder.enterScope();
-			for (TypedTree arg : args) {
+			for (SyntaxTree arg : args) {
 				mBuilder.defineArgument(arg.getText(_name, null), arg.getClassType());
 			}
 			visit(node.get(_body));
@@ -384,7 +384,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class FieldDecl extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
+		public void acceptAsm(SyntaxTree node) {
 			// TODO
 			// TypedTree list = node.get(_list);
 			// for (TypedTree field : list) {
@@ -396,12 +396,12 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class MethodDecl extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
+		public void acceptAsm(SyntaxTree node) {
 			// TODO
 		}
 	}
 
-	private void visitStatementAsBlock(TypedTree node) {
+	private void visitStatementAsBlock(SyntaxTree node) {
 		if (!node.is(_Block)) {
 			visit(node);
 			if (node.getType() != void.class) {
@@ -412,9 +412,9 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 		}
 	}
 
-	private void visitBlock(TypedTree node) {
+	private void visitBlock(SyntaxTree node) {
 		mBuilder.enterScope();
-		for (TypedTree stmt : node) {
+		for (SyntaxTree stmt : node) {
 			mBuilder.setLineNum(node.getLineNum()); // FIXME
 			visit(stmt);
 			if (stmt.getType() != void.class) {
@@ -426,14 +426,14 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class Block extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
+		public void acceptAsm(SyntaxTree node) {
 			visitBlock(node);
 		}
 	}
 
 	public class If extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
+		public void acceptAsm(SyntaxTree node) {
 			visit(node.get(_cond));
 			mBuilder.push(true);
 
@@ -459,7 +459,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class Conditional extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
+		public void acceptAsm(SyntaxTree node) {
 			visit(node.get(_cond));
 			mBuilder.push(true);
 
@@ -485,7 +485,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class While extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
+		public void acceptAsm(SyntaxTree node) {
 			Label beginLabel = mBuilder.newLabel();
 			Label condLabel = mBuilder.newLabel();
 			Label breakLabel = mBuilder.newLabel();
@@ -510,7 +510,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class DoWhile extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
+		public void acceptAsm(SyntaxTree node) {
 			Label beginLabel = mBuilder.newLabel();
 			Label continueLabel = mBuilder.newLabel();
 			Label breakLabel = mBuilder.newLabel();
@@ -533,7 +533,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class For extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
+		public void acceptAsm(SyntaxTree node) {
 			Label beginLabel = mBuilder.newLabel();
 			Label condLabel = mBuilder.newLabel();
 			Label breakLabel = mBuilder.newLabel();
@@ -624,8 +624,8 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 	// }
 	// }
 
-	private boolean has(Symbol tag, TypedTree node) {
-		for (TypedTree sub : node) {
+	private boolean has(Symbol tag, SyntaxTree node) {
+		for (SyntaxTree sub : node) {
 			if (sub.is(tag)) {
 				return true;
 			}
@@ -637,7 +637,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class Switch extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
+		public void acceptAsm(SyntaxTree node) {
 			Class<?> condType = node.get(_cond).getClassType();
 			if (condType == int.class) {
 				acceptIntSwitch(node);
@@ -731,7 +731,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 		// return false;
 		// }
 
-		private int evalKey(TypedTree node) {
+		private int evalKey(SyntaxTree node) {
 			int result = 0;
 			if (node.is(_Add)) {
 				int left = evalKey(node.get(_left));
@@ -757,8 +757,8 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 			return result;
 		}
 
-		private Case[] getSwitchKeys(TypedTree node) {
-			TypedTree body = node.get(_body);
+		private Case[] getSwitchKeys(SyntaxTree node) {
+			SyntaxTree body = node.get(_body);
 			int size;
 			if (has(_SwitchDefault, body)) {
 				size = body.size() - 1;
@@ -767,7 +767,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 			}
 			Case keys[] = new Case[size];
 			int j = 0;
-			for (TypedTree caseNode : body) {
+			for (SyntaxTree caseNode : body) {
 				if (caseNode.is(_SwitchCase)) {
 					keys[j] = new Case(j, evalKey(caseNode.get(_cond)), caseNode.get(_cond).getValue());
 					j++;
@@ -776,11 +776,11 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 			return keys;
 		}
 
-		private void acceptIntSwitch(TypedTree node) {
+		private void acceptIntSwitch(SyntaxTree node) {
 			Label condLabel = mBuilder.newLabel();
 			Label breakLabel = mBuilder.newLabel();
 			mBuilder.getLoopLabels().push(new Pair<Label, Label>(breakLabel, null));
-			TypedTree body = node.get(_body);
+			SyntaxTree body = node.get(_body);
 			int size;
 			if (has(_SwitchDefault, body)) {
 				size = body.size() - 1;
@@ -818,7 +818,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 			int i = 0;
 			// Case and Default Block
-			for (TypedTree sub : body) {
+			for (SyntaxTree sub : body) {
 				if (sub.is(_SwitchCase)) {
 					mBuilder.mark(labels[indexes[i]]);
 					i++;
@@ -833,11 +833,11 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 			mBuilder.mark(breakLabel);
 		}
 
-		private void acceptStringSwitch(TypedTree node) {
+		private void acceptStringSwitch(SyntaxTree node) {
 			Label condLabel = mBuilder.newLabel();
 			Label breakLabel = mBuilder.newLabel();
 			mBuilder.getLoopLabels().push(new Pair<Label, Label>(breakLabel, null));
-			TypedTree body = node.get(_body);
+			SyntaxTree body = node.get(_body);
 			int size;
 			if (has(_SwitchDefault, body)) {
 				size = body.size() - 1;
@@ -903,7 +903,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 			int i = 0;
 			// Case and Default Block
-			for (TypedTree sub : body) {
+			for (SyntaxTree sub : body) {
 				if (sub.is(_SwitchCase)) {
 					mBuilder.mark(cases[indexOf(indexes, i)].getEvalLabel());
 					i++;
@@ -930,8 +930,8 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class Try extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
-			TypedTree finallyNode = node.get(_finally, null);
+		public void acceptAsm(SyntaxTree node) {
+			SyntaxTree finallyNode = node.get(_finally, null);
 			TryCatchLabel labels = mBuilder.createNewTryLabel(finallyNode != null);
 			mBuilder.getTryLabels().push(labels);
 			Label mergeLabel = mBuilder.newLabel();
@@ -950,7 +950,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 			mBuilder.goTo(mergeLabel);
 
 			// catch blocks
-			for (TypedTree catchNode : node.get(_catch)) {
+			for (SyntaxTree catchNode : node.get(_catch)) {
 				Class<?> exceptionType = catchNode.get(_name).getClassType();
 				mBuilder.catchException(labels.getStartLabel(), labels.getEndLabel(), Type.getType(exceptionType));
 				mBuilder.enterScope();
@@ -982,8 +982,8 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class VarDecl extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
-			TypedTree varNode = node.get(_name);
+		public void acceptAsm(SyntaxTree node) {
+			SyntaxTree varNode = node.get(_name);
 			if (mBuilder.getVar(node.getText(_name, null)) == null) {
 				VarEntry var = mBuilder.createNewVar(varNode.toText(), varNode.getClassType());
 				if (node.has(_expr)) {
@@ -996,9 +996,9 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class MultiVarDecl extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
-			for (TypedTree sub : node) {
-				TypedTree varNode = sub.get(_name);
+		public void acceptAsm(SyntaxTree node) {
+			for (SyntaxTree sub : node) {
+				SyntaxTree varNode = sub.get(_name);
 				VarEntry var = mBuilder.createNewVar(varNode.toText(), varNode.getClassType());
 				if (sub.has(_expr)) {
 					visit(sub.get(_expr));
@@ -1010,9 +1010,9 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class Assign extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
+		public void acceptAsm(SyntaxTree node) {
 			String name = node.getText(_left, null);
-			TypedTree valueNode = node.get(_right);
+			SyntaxTree valueNode = node.get(_right);
 			VarEntry var = mBuilder.getVar(name);
 			visit(valueNode);
 			mBuilder.dup(valueNode.getClassType()); // to return value form
@@ -1023,7 +1023,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class Assert extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
+		public void acceptAsm(SyntaxTree node) {
 			Label label = mBuilder.newLabel();
 			visit(node.get(_cond));
 			mBuilder.ifCmp(Type.BOOLEAN_TYPE, GeneratorAdapter.EQ, label);
@@ -1035,12 +1035,12 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class Return extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
+		public void acceptAsm(SyntaxTree node) {
 			if (node.has(_expr)) {
 				visit(node.get(_expr));
 			}
 			// mBuilder.jumpToMultipleFinally();
-			for (TypedTree finallyNode : mBuilder.getMultipleFinallyNode()) {
+			for (SyntaxTree finallyNode : mBuilder.getMultipleFinallyNode()) {
 				visit(finallyNode);
 			}
 			mBuilder.returnValue();
@@ -1049,10 +1049,10 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class Break extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
+		public void acceptAsm(SyntaxTree node) {
 			Label breakLabel = mBuilder.getLoopLabels().peek().getLeft();
 			// mBuilder.jumpToMultipleFinally();
-			for (TypedTree finallyNode : mBuilder.getMultipleFinallyNode()) {
+			for (SyntaxTree finallyNode : mBuilder.getMultipleFinallyNode()) {
 				visit(finallyNode);
 			}
 			mBuilder.goTo(breakLabel);
@@ -1061,10 +1061,10 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class Continue extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
+		public void acceptAsm(SyntaxTree node) {
 			Label continueLabel = mBuilder.getLoopLabels().peek().getRight();
 			// mBuilder.jumpToMultipleFinally();
-			for (TypedTree finallyNode : mBuilder.getMultipleFinallyNode()) {
+			for (SyntaxTree finallyNode : mBuilder.getMultipleFinallyNode()) {
 				visit(finallyNode);
 			}
 			mBuilder.goTo(continueLabel);
@@ -1073,7 +1073,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class Throw extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
+		public void acceptAsm(SyntaxTree node) {
 			if (node.has(_expr)) {
 				visit(node.get(_expr));
 			}
@@ -1083,14 +1083,14 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class Expression extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
+		public void acceptAsm(SyntaxTree node) {
 			visit(node.get(0));
 		}
 	}
 
 	public class Name extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
+		public void acceptAsm(SyntaxTree node) {
 			VarEntry var = mBuilder.getVar(node.toText());
 			mBuilder.loadFromVar(var);
 		}
@@ -1098,7 +1098,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class Cast extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
+		public void acceptAsm(SyntaxTree node) {
 			visit(node.get(_expr));
 			mBuilder.checkCast(Type.getType(node.getClassType()));
 		}
@@ -1106,7 +1106,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class And extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
+		public void acceptAsm(SyntaxTree node) {
 			Label elseLabel = new Label();
 			Label mergeLabel = new Label();
 			visit(node.get(_left));
@@ -1129,7 +1129,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class Or extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
+		public void acceptAsm(SyntaxTree node) {
 			Label thenLabel = new Label();
 			Label mergeLabel = new Label();
 			visit(node.get(_left));
@@ -1151,7 +1151,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class Inc extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
+		public void acceptAsm(SyntaxTree node) {
 			// evalSuffixInc(node, 1);
 			visit(node.get(_expr));
 			visitStatementAsBlock(node.get(_body));
@@ -1160,7 +1160,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class Dec extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
+		public void acceptAsm(SyntaxTree node) {
 			// evalSuffixInc(node, -1);
 			visit(node.get(_expr));
 			visitStatementAsBlock(node.get(_body));
@@ -1183,7 +1183,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class Array extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
+		public void acceptAsm(SyntaxTree node) {
 			Class<?> c = node.getClassType();
 			Class<?> elemClass = Lang.getArrayElementClass(c);
 			if (Lang.isNativeArray(c)) {
@@ -1197,11 +1197,11 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 		}
 	}
 
-	void pushArray(Class<?> elementType, TypedTree node) {
+	void pushArray(Class<?> elementType, SyntaxTree node) {
 		this.mBuilder.push(node.size());
 		this.mBuilder.newArray(Type.getType(elementType));
 		int index = 0;
-		for (TypedTree sub : node) {
+		for (SyntaxTree sub : node) {
 			this.mBuilder.dup();
 			this.mBuilder.push(index);
 			visit(sub);
@@ -1212,7 +1212,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class NewArray extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
+		public void acceptAsm(SyntaxTree node) {
 			Class<?> c = node.getClassType();
 			Class<?> elemClass = Lang.getArrayElementClass(c);
 			mBuilder.newInstance(Type.getType(c));
@@ -1225,7 +1225,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class NullCheck extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
+		public void acceptAsm(SyntaxTree node) {
 			if (node.getValue() != null && node.getValue().getClass() == Boolean.class) {
 				mBuilder.push((boolean) node.getValue());
 			} else {
@@ -1244,7 +1244,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class NonNullCheck extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
+		public void acceptAsm(SyntaxTree node) {
 			if (node.getValue() != null && node.getValue().getClass() == Boolean.class) {
 				mBuilder.push((boolean) node.getValue());
 			} else {
@@ -1263,14 +1263,14 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public class Null extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
+		public void acceptAsm(SyntaxTree node) {
 			mBuilder.pushNull();
 		}
 	}
 
 	public class Empty extends Undefined {
 		@Override
-		public void acceptAsm(TypedTree node) {
+		public void acceptAsm(SyntaxTree node) {
 			// empty
 		}
 	}

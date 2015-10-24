@@ -219,7 +219,7 @@ public class Functor {
 		return null;
 	}
 
-	public final Object eval(TypedTree node, Object... args) {
+	public final Object eval(SyntaxTree node, Object... args) {
 		try {
 			Object v = evalIndy(args);
 			return node.getType() == void.class ? ScriptEvaluator.empty : v;

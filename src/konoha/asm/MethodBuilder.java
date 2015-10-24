@@ -4,7 +4,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 
-import konoha.script.TypedTree;
+import konoha.script.SyntaxTree;
 
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Label;
@@ -134,23 +134,23 @@ public class MethodBuilder extends GeneratorAdapter {
 		}
 	}
 
-	private TypedTree getFinallyNode(TryCatchLabel label) {
+	private SyntaxTree getFinallyNode(TryCatchLabel label) {
 		return label.getFinallyNode();
 	}
 
-	public TypedTree getFinallyNode() {
+	public SyntaxTree getFinallyNode() {
 		return this.getFinallyNode(this.tryLabels.peek());
 	}
 
-	public TypedTree[] getMultipleFinallyNode() {
-		ArrayList<TypedTree> finallyNodeList = new ArrayList<>();
+	public SyntaxTree[] getMultipleFinallyNode() {
+		ArrayList<SyntaxTree> finallyNodeList = new ArrayList<>();
 		for (TryCatchLabel label : this.tryLabels) {
-			TypedTree finallyNode = this.getFinallyNode(label);
+			SyntaxTree finallyNode = this.getFinallyNode(label);
 			if (finallyNode != null) {
 				finallyNodeList.add(finallyNode);
 			}
 		}
-		TypedTree[] finallyNodes = new TypedTree[finallyNodeList.size()];
+		SyntaxTree[] finallyNodes = new SyntaxTree[finallyNodeList.size()];
 		return finallyNodeList.toArray(finallyNodes);
 	}
 

@@ -1,5 +1,5 @@
 package konoha.script;
 
 public interface TreeEvaluator {
-	public Object acceptEval(TypedTree node);
+	public Object acceptEval(SyntaxTree node);
 }

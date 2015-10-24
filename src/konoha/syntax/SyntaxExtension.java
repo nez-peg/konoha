@@ -11,7 +11,7 @@ import konoha.script.TreeDesugar;
 import konoha.script.TreeEvaluator;
 import konoha.script.TypeChecker;
 import konoha.script.TypeSystem;
-import konoha.script.TypedTree;
+import konoha.script.SyntaxTree;
 
 public abstract class SyntaxExtension extends Hacker implements TreeChecker, TreeDesugar, TreeEvaluator, TreeAsm, CommonSymbols {
 
@@ -29,21 +29,21 @@ public abstract class SyntaxExtension extends Hacker implements TreeChecker, Tre
 	public abstract String getName();
 
 	@Override
-	public abstract Type acceptType(TypedTree node);
+	public abstract Type acceptType(SyntaxTree node);
 
 	@Override
-	public TypedTree acceptDesugar(TypedTree node) {
+	public SyntaxTree acceptDesugar(SyntaxTree node) {
 		return node;
 	}
 
 	@Override
-	public Object acceptEval(TypedTree node) {
+	public Object acceptEval(SyntaxTree node) {
 		// Default: should be desugared to Konoha CommonTags
 		return null;
 	}
 
 	@Override
-	public void acceptAsm(TypedTree node) {
+	public void acceptAsm(SyntaxTree node) {
 		// Default: should be desugared to Konoha CommonTags
 	}
 

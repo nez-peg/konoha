@@ -44,7 +44,7 @@ public class ScriptContext extends ScriptContextHacks {
 
 	public final Object eval(SourceContext source) {
 		this.found = ScriptContextError.NoError;
-		TypedTree node = (TypedTree) this.getParser().parse(source, new TypedTree());
+		SyntaxTree node = (SyntaxTree) this.getParser().parse(source, new SyntaxTree());
 		if (node == null) {
 			log(source.getErrorMessage("error", Message.SyntaxError.toString()));
 			this.found = ScriptContextError.SyntaxError;
@@ -58,15 +58,15 @@ public class ScriptContext extends ScriptContextHacks {
 
 	public boolean enableASTDump = false;
 
-	private Object evalSource(TypedTree node) {
+	private Object evalSource(SyntaxTree node) {
 		Object result = ScriptEvaluator.empty;
 		for (int i = 0; i < node.size(); i++) {
-			TypedTree sub = node.get(i);
+			SyntaxTree sub = node.get(i);
 			if (enableASTDump) {
 				ConsoleUtils.println("[Parsed]");
 				ConsoleUtils.println("    ", sub);
 			}
-			TypedTree typed = checker.checkAtTopLevel(sub);
+			SyntaxTree typed = checker.checkAtTopLevel(sub);
 			if (typed != sub) {
 				node.set(i, typed);
 			}

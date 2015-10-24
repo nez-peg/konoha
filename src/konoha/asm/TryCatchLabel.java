@@ -1,6 +1,6 @@
 package konoha.asm;
 
-import konoha.script.TypedTree;
+import konoha.script.SyntaxTree;
 
 import org.objectweb.asm.Label;
 
@@ -10,7 +10,7 @@ public class TryCatchLabel {
 	private final Label finallyLabel;
 
 	VarEntry retAddrEntry;
-	TypedTree finallyNode;
+	SyntaxTree finallyNode;
 
 	/**
 	 * 
@@ -41,11 +41,11 @@ public class TryCatchLabel {
 		return this.finallyLabel;
 	}
 
-	public TypedTree getFinallyNode() {
+	public SyntaxTree getFinallyNode() {
 		return this.finallyNode;
 	}
 
-	public void setFinallyNode(TypedTree finallyNode) {
+	public void setFinallyNode(SyntaxTree finallyNode) {
 		this.finallyNode = finallyNode;
 	}
 }

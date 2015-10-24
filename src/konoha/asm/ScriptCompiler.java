@@ -10,7 +10,7 @@ import konoha.script.GenericType;
 import konoha.script.Reflector;
 import konoha.script.Syntax;
 import konoha.script.TypeSystem;
-import konoha.script.TypedTree;
+import konoha.script.SyntaxTree;
 import nez.ast.Tree;
 
 public class ScriptCompiler {
@@ -83,15 +83,15 @@ public class ScriptCompiler {
 
 	public void compileClassDecl(Tree<?> node) {
 		String name = node.getText(CommonSymbols._name, null);
-		Class<?> clazz = this.asm.compileClass((TypedTree) node);
+		Class<?> clazz = this.asm.compileClass((SyntaxTree) node);
 	}
 
-	public Functor newPrototypeFunction(TypedTree node, java.lang.reflect.Type returnType, String name, java.lang.reflect.Type[] paramTypes) {
+	public Functor newPrototypeFunction(SyntaxTree node, java.lang.reflect.Type returnType, String name, java.lang.reflect.Type[] paramTypes) {
 		String cname = this.asm.nameFunctionClass(node, name);
 		return new Functor(Syntax.Function, new FunctionPrototype(cname, returnType, name, paramTypes));
 	}
 
-	public Class<?> compileFuncDecl(TypedTree node, Functor symbolFunctor) {
+	public Class<?> compileFuncDecl(SyntaxTree node, Functor symbolFunctor) {
 		String name = node.getText(CommonSymbols._name, null);
 		String cname = null;
 		if (symbolFunctor != null) {

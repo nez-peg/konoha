@@ -6,7 +6,7 @@ import konoha.script.Reflector;
 import konoha.script.ScriptEvaluator;
 import konoha.script.TypeChecker;
 import konoha.script.TypeSystem;
-import konoha.script.TypedTree;
+import konoha.script.SyntaxTree;
 import nez.Parser;
 
 public class ScriptContextHacks {
@@ -48,7 +48,7 @@ public class ScriptContextHacks {
 	}
 
 	private static boolean isDefinedChecker(SyntaxExtension s) {
-		Method m = Reflector.getMethod(s, "acceptType", TypedTree.class);
+		Method m = Reflector.getMethod(s, "acceptType", SyntaxTree.class);
 		if (m != null) {
 			return (m.getDeclaringClass() != s.getClass());
 		}
@@ -56,7 +56,7 @@ public class ScriptContextHacks {
 	}
 
 	private static boolean isDefinedDesugar(SyntaxExtension s) {
-		Method m = Reflector.getMethod(s, "acceptDesugar", TypedTree.class);
+		Method m = Reflector.getMethod(s, "acceptDesugar", SyntaxTree.class);
 		if (m != null) {
 			return (m.getDeclaringClass() != s.getClass());
 		}
@@ -64,7 +64,7 @@ public class ScriptContextHacks {
 	}
 
 	private static boolean isDefinedEvaluator(SyntaxExtension s) {
-		Method m = Reflector.getMethod(s, "acceptEval", TypedTree.class);
+		Method m = Reflector.getMethod(s, "acceptEval", SyntaxTree.class);
 		if (m != null) {
 			return (m.getDeclaringClass() != s.getClass());
 		}
@@ -72,7 +72,7 @@ public class ScriptContextHacks {
 	}
 
 	private static boolean isDefinedAssembler(SyntaxExtension s) {
-		Method m = Reflector.getMethod(s, "acceptAsm", TypedTree.class);
+		Method m = Reflector.getMethod(s, "acceptAsm", SyntaxTree.class);
 		if (m != null) {
 			return (m.getDeclaringClass() != s.getClass());
 		}
