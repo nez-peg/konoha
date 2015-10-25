@@ -425,7 +425,9 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 		for (SyntaxTree stmt : node) {
 			mBuilder.setLineNum(node.getLineNum()); // FIXME
 			visit(stmt);
-			if (stmt.getType() != void.class) {
+			if (stmt.getType() == null) {
+				// TypeError
+			} else if (stmt.getType() != void.class) {
 				mBuilder.pop(stmt.getClassType());
 			}
 		}
@@ -592,12 +594,72 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 	public class Switch extends Undefined {
 		@Override
 		public void acceptAsm(SyntaxTree node) {
+			Label condLabel = mBuilder.newLabel();
+			Label breakLabel = mBuilder.newLabel();
+			mBuilder.getLoopLabels().push(new Pair<Label, Label>(breakLabel, null));
+			SyntaxTree body = node.get(_body);
+			int size;
+			if (has(_SwitchDefault, body)) {
+				size = body.size() - 1;
+			} else {
+				size = body.size();
+			}
+
+			Label dfltLabel = mBuilder.newLabel();
+			Label[] labels = new Label[size];
+			for (int i = 0; i < size; i++) {
+				labels[i] = mBuilder.newLabel();
+			}
+
+			// keys must be ascending order
+			Case cases[] = getSwitchKeys(node);
+			Arrays.sort(cases);
+			int[] indexes = new int[size];
+			for (int i = 0; i < size; i++) {
+				indexes[i] = cases[i].getIndex();
+				if (i > 0 && cases[i].getKey() == cases[i - 1].getKey()) {
+					cases[i].setChecklabel(cases[i - 1].getChecklabel());
+				} else {
+					cases[i].setChecklabel(mBuilder.newLabel());
+				}
+				cases[i].setEvalLabel(mBuilder.newLabel());
+			}
+			ArrayList<Integer> keyList = new ArrayList<>();
+			ArrayList<Label> checkLabels = new ArrayList<>();
+			for (int i = 0; i < size; i++) {
+				if (i == 0 || cases[i].getKey() != cases[i - 1].getKey()) {
+					checkLabels.add(cases[i].getChecklabel());
+					keyList.add(cases[i].getKey());
+				}
+			}
+			int[] keys = new int[keyList.size()];
+			for (int i = 0; i < keyList.size(); i++) {
+				keys[i] = keyList.get(i);
+			}
+
+			// Condition
 			Class<?> condType = node.get(_cond).getClassType();
 			if (condType == int.class) {
-				acceptIntSwitch(node);
+				acceptIntSwitch(node, condLabel, dfltLabel, cases, keys);
 			} else if (condType == String.class) {
-				acceptStringSwitch(node);
+				acceptStringSwitch(node, condLabel, dfltLabel, checkLabels, keys, size, cases);
 			}
+
+			int i = 0;
+			// Case and Default Block
+			for (SyntaxTree sub : body) {
+				if (sub.is(_SwitchCase)) {
+					mBuilder.mark(cases[indexOf(indexes, i)].getEvalLabel());
+					i++;
+				} else if (sub.is(_SwitchDefault)) {
+					mBuilder.mark(dfltLabel);
+				}
+				visit(sub.get(_body));
+			}
+			if (!has(_SwitchDefault, body)) {
+				mBuilder.mark(dfltLabel);
+			}
+			mBuilder.mark(breakLabel);
 		}
 
 		class Case implements Comparable<Case> {
@@ -703,9 +765,9 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 				int left = evalKey(node.get(_left));
 				int right = evalKey(node.get(_right));
 				result = left / right;
-			} else if (node.is(_Integer)) {
+			} else if (node.is(_Const) && node.getClassType() == int.class) {
 				result = (int) node.getValue();
-			} else if (node.is(_String)) {
+			} else if (node.is(_Const) && node.getClassType() == String.class) {
 				result = ((String) node.getValue()).hashCode();
 			}
 			return result;
@@ -730,37 +792,15 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 			return keys;
 		}
 
-		private void acceptIntSwitch(SyntaxTree node) {
-			Label condLabel = mBuilder.newLabel();
-			Label breakLabel = mBuilder.newLabel();
-			mBuilder.getLoopLabels().push(new Pair<Label, Label>(breakLabel, null));
-			SyntaxTree body = node.get(_body);
-			int size;
-			if (has(_SwitchDefault, body)) {
-				size = body.size() - 1;
-			} else {
-				size = body.size();
-			}
-
-			Label dfltLabel = mBuilder.newLabel();
-			Label[] labels = new Label[size];
-			for (int i = 0; i < size; i++) {
-				labels[i] = mBuilder.newLabel();
-			}
-			// keys must be ascending order
-			Case cases[] = getSwitchKeys(node);
-			Arrays.sort(cases);
-			int[] keys = new int[size];
-			int[] indexes = new int[size];
-			for (int i = 0; i < size; i++) {
-				keys[i] = cases[i].getKey();
-				indexes[i] = cases[i].getIndex();
-			}
-
+		private void acceptIntSwitch(SyntaxTree node, Label condLabel, Label dfltLabel, Case[] cases, int[] keys) {
 			// Condition
 			mBuilder.mark(condLabel);
 			visit(node.get(_cond));
-			mBuilder.visitLookupSwitchInsn(dfltLabel, keys, labels);
+			Label[] evalLabels = new Label[cases.length];
+			for (int i = 0; i < cases.length; i++) {
+				evalLabels[i] = cases[i].getEvalLabel();
+			}
+			mBuilder.visitLookupSwitchInsn(dfltLabel, keys, evalLabels);
 			// if (condType == int.class) {
 			// if (isTableSwitch(keys)) {
 			// mBuilder.visitTableSwitchInsn(arg0, arg1, dfltLabel, labels);
@@ -769,65 +809,9 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 			// }
 			// } else if (condType == String.class) {
 			// }
-
-			int i = 0;
-			// Case and Default Block
-			for (SyntaxTree sub : body) {
-				if (sub.is(_SwitchCase)) {
-					mBuilder.mark(labels[indexes[i]]);
-					i++;
-				} else if (sub.is(_SwitchDefault)) {
-					mBuilder.mark(dfltLabel);
-				}
-				visit(sub.get(_body));
-			}
-			if (!has(_SwitchDefault, body)) {
-				mBuilder.mark(dfltLabel);
-			}
-			mBuilder.mark(breakLabel);
 		}
 
-		private void acceptStringSwitch(SyntaxTree node) {
-			Label condLabel = mBuilder.newLabel();
-			Label breakLabel = mBuilder.newLabel();
-			mBuilder.getLoopLabels().push(new Pair<Label, Label>(breakLabel, null));
-			SyntaxTree body = node.get(_body);
-			int size;
-			if (has(_SwitchDefault, body)) {
-				size = body.size() - 1;
-			} else {
-				size = body.size();
-			}
-
-			Label dfltLabel = mBuilder.newLabel();
-
-			// keys must be ascending order
-			Case cases[] = getSwitchKeys(node);
-			Arrays.sort(cases);
-			int[] indexes = new int[size];
-			for (int i = 0; i < size; i++) {
-				indexes[i] = cases[i].getIndex();
-				if (i > 0 && cases[i].getKey() == cases[i - 1].getKey()) {
-					cases[i].setChecklabel(cases[i - 1].getChecklabel());
-				} else {
-					cases[i].setChecklabel(mBuilder.newLabel());
-				}
-				cases[i].setEvalLabel(mBuilder.newLabel());
-			}
-			ArrayList<Integer> keyList = new ArrayList<>();
-			ArrayList<Label> checkLabels = new ArrayList<>();
-			for (int i = 0; i < size; i++) {
-				if (i > 0 && cases[i].getKey() == cases[i - 1].getKey()) {
-				} else {
-					checkLabels.add(cases[i].getChecklabel());
-					keyList.add(cases[i].getKey());
-				}
-			}
-			int[] keys = new int[keyList.size()];
-			for (int i = 0; i < keyList.size(); i++) {
-				keys[i] = keyList.get(i);
-			}
-
+		private void acceptStringSwitch(SyntaxTree node, Label condLabel, Label dfltLabel, ArrayList<Label> checkLabels, int[] keys, int size, Case[] cases) {
 			// Condition
 			mBuilder.mark(condLabel);
 			visit(node.get(_cond));
@@ -854,22 +838,6 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 					mBuilder.visitJumpInsn(Opcodes.IFNE, cases[i].getEvalLabel());
 				}
 			}
-
-			int i = 0;
-			// Case and Default Block
-			for (SyntaxTree sub : body) {
-				if (sub.is(_SwitchCase)) {
-					mBuilder.mark(cases[indexOf(indexes, i)].getEvalLabel());
-					i++;
-				} else if (sub.is(_SwitchDefault)) {
-					mBuilder.mark(dfltLabel);
-				}
-				visit(sub.get(_body));
-			}
-			if (!has(_SwitchDefault, body)) {
-				mBuilder.mark(dfltLabel);
-			}
-			mBuilder.mark(breakLabel);
 		}
 
 		private int indexOf(int[] array, int value) {
@@ -911,11 +879,19 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 				mBuilder.createNewVarAndStore(catchNode.getText(_name, null), exceptionType);
 				visit(catchNode.get(_body));
 				if (finallyNode != null) {
-					// mBuilder.jumpToFinally();
-					visit(mBuilder.getFinallyNode());
+					for (SyntaxTree fnode : mBuilder.getMultipleFinallyNode()) {
+						visit(fnode);
+					}
 				}
-				mBuilder.goTo(mergeLabel);
 				mBuilder.exitScope();
+				mBuilder.goTo(mergeLabel);
+			}
+			if (node.get(_catch).size() == 0 && finallyNode != null) {
+				mBuilder.catchException(labels.getStartLabel(), labels.getEndLabel(), Type.getType(RuntimeException.class));
+				for (SyntaxTree fnode : mBuilder.getMultipleFinallyNode()) {
+					visit(fnode);
+				}
+				mBuilder.throwException();
 			}
 
 			// finally block
