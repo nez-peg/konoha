@@ -20,9 +20,7 @@ public abstract class Prototype {
 		this.returnType = returnType;
 		this.name = name;
 		this.paramTypes = paramTypes;
-		//
 		this.owner = Type.getType("L" + cname + ";");
-		// System.out.println("owner" + owner + " / cname=" + cname);
 		this.desc = method(returnType, name, paramTypes);
 	}
 
