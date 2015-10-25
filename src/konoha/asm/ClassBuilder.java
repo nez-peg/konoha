@@ -1,5 +1,7 @@
 package konoha.asm;
 
+import nez.util.UList;
+
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -14,21 +16,6 @@ import org.objectweb.asm.tree.FieldNode;
  */
 public class ClassBuilder extends ClassWriter implements Opcodes {
 	private final String qualifiedClassName;
-
-	/**
-	 * generate new class builder
-	 * 
-	 * @param accessFlag
-	 *            represent for java access flag (public, private, static ... )
-	 * @param fullyQualifiedClassName
-	 *            ex. org/peg4d/generated/Parser
-	 * @param sourceName
-	 *            source file name, may be null
-	 * @param superClass
-	 *            if null, super class is java/lang/Object
-	 * @param interfaces
-	 *            may be null, if has no interface
-	 */
 
 	public ClassBuilder(int accessFlag, String fullyQualifiedClassName, String sourceName, Class<?> superClass, Class<?>[] interfaces) {
 		super(ClassWriter.COMPUTE_FRAMES);
@@ -49,35 +36,13 @@ public class ClassBuilder extends ClassWriter implements Opcodes {
 		this.visitSource(sourceName, null);
 	}
 
-	/**
-	 * equivalent to ClassBuilder(ACC_PUBLIC | ACC_FINAL,
-	 * fullyQualifiedClassName, sourceName, superClass, interfaces)
-	 * 
-	 * @param fullyQualifiedClassName
-	 * @param sourceName
-	 * @param superClass
-	 * @param interfaces
-	 */
-
 	public ClassBuilder(String fullyQualifiedClassName, String sourceName, Class<?> superClass, Class<?>[] interfaces) {
 		this(ACC_PUBLIC | ACC_FINAL, fullyQualifiedClassName, sourceName, superClass, interfaces);
 	}
 
-	/**
-	 * get fully qualified class name. for
-	 * UserDefinedClassLoader#definedAndLoadClass()
-	 * 
-	 * @return
-	 */
 	public String getQualifiedClassName() {
 		return this.qualifiedClassName;
 	}
-
-	/**
-	 * get type descriptor of generating class
-	 * 
-	 * @return
-	 */
 
 	public Type getTypeDesc() {
 		return Type.getType("L" + this.qualifiedClassName + ";");
@@ -86,6 +51,47 @@ public class ClassBuilder extends ClassWriter implements Opcodes {
 	public void addField(int acc, String name, Class<?> fieldClass, Object value) {
 		FieldNode fn = new FieldNode(acc, name, Type.getDescriptor(fieldClass), null, value);
 		fn.accept(this);
+	}
+
+	private UList<Object> constList = null;
+
+	public final int poolConst(Object value) {
+		if (constList == null) {
+			constList = new UList<Object>(new Object[2]);
+		}
+		for (int i = 0; i < constList.size(); i++) {
+			if (constList.ArrayValues[i] == value) {
+				return i;
+			}
+		}
+		int id = constList.size();
+		constList.add(value);
+		return id;
+	}
+
+	String constName(int id) {
+		return "__const" + id + "__";
+	}
+
+	public void buildConstPool() {
+		if (constList == null) {
+			return;
+		}
+		for (int i = 0; i < constList.size(); i++) {
+			addField(ACC_STATIC, constName(i), constList.ArrayValues[i].getClass(), null);
+		}
+		int poolId = ConstPools.registConstPools(constList.compactArray());
+		MethodBuilder m = this.newMethodBuilder(ACC_PUBLIC | ACC_STATIC, Method.getMethod("void <clinit> ()"));
+		for (int i = 0; i < constList.size(); i++) {
+			m.push(poolId);
+			m.push(i);
+			m.invokeStatic(Type.getType(ConstPools.class), Method.getMethod("java.lang.Object get(int,int)"));
+			Type fieldType = Type.getType(constList.ArrayValues[i].getClass());
+			m.checkCast(fieldType);
+			m.putStatic(this.getTypeDesc(), constName(i), fieldType);
+		}
+		m.returnValue();
+		constList = null;
 	}
 
 	/**

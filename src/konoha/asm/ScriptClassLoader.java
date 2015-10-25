@@ -129,10 +129,10 @@ public class ScriptClassLoader extends ClassLoader {
 		String binaryName = toBinaryName(className);
 		this.addByteCode(binaryName, byteCode);
 		try {
-			return this.loadClass(binaryName);
+			Class<?> c = this.loadClass(binaryName);
+			return c;
 		} catch (Throwable e) {
 			e.printStackTrace();
-			System.err.println("class loading failed: " + binaryName);
 			System.exit(1);
 		}
 		return null;

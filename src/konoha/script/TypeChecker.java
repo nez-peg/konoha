@@ -1524,75 +1524,75 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 		}
 	}
 
-	public class AssignSub extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return typeSelfAssignment(node, _Sub);
-		}
-	}
-
-	public class AssignMul extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return typeSelfAssignment(node, _Mul);
-		}
-	}
-
-	public class AssignDiv extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return typeSelfAssignment(node, _Div);
-		}
-	}
-
-	public class AssignMod extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return typeSelfAssignment(node, _Mod);
-		}
-	}
-
-	public class AssignLeftShift extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return typeSelfAssignment(node, _LeftShift);
-		}
-	}
-
-	public class AssignRightShift extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return typeSelfAssignment(node, _RightShift);
-		}
-	}
-
-	public class AssignLogicalRightShift extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return typeSelfAssignment(node, _LogicalRightShift);
-		}
-	}
-
-	public class AssignBitwiseAnd extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return typeSelfAssignment(node, _BitwiseAnd);
-		}
-	}
-
-	public class AssignBitwiseXOr extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return typeSelfAssignment(node, _BitwiseXor);
-		}
-	}
-
-	public class AssignBitwiseOr extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return typeSelfAssignment(node, _BitwiseOr);
-		}
-	}
+	// public class AssignSub extends Undefined {
+	// @Override
+	// public Type acceptType(SyntaxTree node) {
+	// return typeSelfAssignment(node, _Sub);
+	// }
+	// }
+	//
+	// public class AssignMul extends Undefined {
+	// @Override
+	// public Type acceptType(SyntaxTree node) {
+	// return typeSelfAssignment(node, _Mul);
+	// }
+	// }
+	//
+	// public class AssignDiv extends Undefined {
+	// @Override
+	// public Type acceptType(SyntaxTree node) {
+	// return typeSelfAssignment(node, _Div);
+	// }
+	// }
+	//
+	// public class AssignMod extends Undefined {
+	// @Override
+	// public Type acceptType(SyntaxTree node) {
+	// return typeSelfAssignment(node, _Mod);
+	// }
+	// }
+	//
+	// public class AssignLeftShift extends Undefined {
+	// @Override
+	// public Type acceptType(SyntaxTree node) {
+	// return typeSelfAssignment(node, _LeftShift);
+	// }
+	// }
+	//
+	// public class AssignRightShift extends Undefined {
+	// @Override
+	// public Type acceptType(SyntaxTree node) {
+	// return typeSelfAssignment(node, _RightShift);
+	// }
+	// }
+	//
+	// public class AssignLogicalRightShift extends Undefined {
+	// @Override
+	// public Type acceptType(SyntaxTree node) {
+	// return typeSelfAssignment(node, _LogicalRightShift);
+	// }
+	// }
+	//
+	// public class AssignBitwiseAnd extends Undefined {
+	// @Override
+	// public Type acceptType(SyntaxTree node) {
+	// return typeSelfAssignment(node, _BitwiseAnd);
+	// }
+	// }
+	//
+	// public class AssignBitwiseXOr extends Undefined {
+	// @Override
+	// public Type acceptType(SyntaxTree node) {
+	// return typeSelfAssignment(node, _BitwiseXor);
+	// }
+	// }
+	//
+	// public class AssignBitwiseOr extends Undefined {
+	// @Override
+	// public Type acceptType(SyntaxTree node) {
+	// return typeSelfAssignment(node, _BitwiseOr);
+	// }
+	// }
 
 	private SyntaxTree desugarInc(SyntaxTree expr, Symbol optag) {
 		SyntaxTree op = expr.newInstance(optag, 0, null);

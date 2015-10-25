@@ -9,8 +9,8 @@ import konoha.script.Functor;
 import konoha.script.GenericType;
 import konoha.script.Reflector;
 import konoha.script.Syntax;
-import konoha.script.TypeSystem;
 import konoha.script.SyntaxTree;
+import konoha.script.TypeSystem;
 import nez.ast.Tree;
 
 public class ScriptCompiler {
@@ -82,8 +82,8 @@ public class ScriptCompiler {
 	}
 
 	public void compileClassDecl(Tree<?> node) {
-		String name = node.getText(CommonSymbols._name, null);
-		Class<?> clazz = this.asm.compileClass((SyntaxTree) node);
+		// String name = node.getText(CommonSymbols._name, null);
+		// Class<?> clazz = this.asm.compileClass((SyntaxTree) node);
 	}
 
 	public Functor newPrototypeFunction(SyntaxTree node, java.lang.reflect.Type returnType, String name, java.lang.reflect.Type[] paramTypes) {

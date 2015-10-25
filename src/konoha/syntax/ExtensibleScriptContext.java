@@ -4,26 +4,22 @@ import java.lang.reflect.Method;
 
 import konoha.asm.ScriptCompilerAsm;
 import konoha.script.Reflector;
-import konoha.script.ScriptEvaluator;
+import konoha.script.Evaluator;
 import konoha.script.SyntaxTree;
 import konoha.script.TypeChecker;
 import konoha.script.TypeSystem;
 import nez.Parser;
 
-public class ScriptContextHacks {
+public class ExtensibleScriptContext {
 
 	protected Parser parser;
 	protected TypeSystem typeSystem;
 	protected TypeChecker checker;
-	protected ScriptEvaluator eval;
+	protected Evaluator eval;
 	protected ScriptCompilerAsm asm;
 
 	protected Parser getParser() {
 		return parser;
-	}
-
-	protected void setParser(Parser parser) {
-		this.parser = parser;
 	}
 
 	protected TypeSystem getTypeSystem() {

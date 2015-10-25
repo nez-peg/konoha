@@ -10,8 +10,8 @@ import konoha.script.Debug;
 import konoha.script.Functor;
 import konoha.script.Lang;
 import konoha.script.Syntax;
-import konoha.script.TypeSystem;
 import konoha.script.SyntaxTree;
+import konoha.script.TypeSystem;
 import nez.ast.Symbol;
 import nez.ast.TreeVisitor2;
 
@@ -22,7 +22,7 @@ import org.objectweb.asm.commons.GeneratorAdapter;
 import org.objectweb.asm.commons.Method;
 
 public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSymbols {
-	private TypeSystem typeSystem;
+	// private TypeSystem typeSystem;
 	private ScriptClassLoader cLoader;
 	private ClassBuilder cBuilder;
 	private MethodBuilder mBuilder;
@@ -30,9 +30,13 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 
 	public ScriptCompilerAsm(TypeSystem typeSystem, ScriptClassLoader cLoader) {
 		// super(TypedTree.class);
-		this.typeSystem = typeSystem;
+		// this.typeSystem = typeSystem;
 		this.cLoader = cLoader;
 		init(new Undefined());
+	}
+
+	private void visit(SyntaxTree node) {
+		this.find(node).acceptAsm(node);
 	}
 
 	public class Undefined implements TreeAsm {
@@ -122,12 +126,34 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 	public class Const extends Undefined {
 		@Override
 		public void acceptAsm(SyntaxTree node) {
-			visitConstantHint(node);
+			asmConst(node);
 		}
 	}
 
-	private void visit(SyntaxTree node) {
-		this.find(node).acceptAsm(node);
+	private void asmConst(SyntaxTree node) {
+		// assert (node.hint() == Hint.Constant);
+		Object v = node.getValue();
+		if (v instanceof String) {
+			this.mBuilder.push((String) v);
+		} else if (v instanceof Integer || v instanceof Character || v instanceof Byte) {
+			this.mBuilder.push(((Number) v).intValue());
+		} else if (v instanceof Double) {
+			this.mBuilder.push(((Double) v).doubleValue());
+		} else if (v instanceof Boolean) {
+			this.mBuilder.push(((Boolean) v).booleanValue());
+		} else if (v instanceof Long) {
+			this.mBuilder.push(((Long) v).longValue());
+		} else if (v instanceof Class<?>) {
+			this.mBuilder.push(Type.getType((Class<?>) v));
+		} else {
+			if (v != null) {
+				int id = this.cBuilder.poolConst(v);
+				String name = this.cBuilder.constName(id);
+				this.mBuilder.getStatic(cBuilder.getTypeDesc(), name, Type.getType(v.getClass()));
+			} else {
+				this.mBuilder.pushNull();
+			}
+		}
 	}
 
 	/* typechecker hints */
@@ -160,29 +186,6 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 		}
 	}
 
-	private void visitConstantHint(SyntaxTree node) {
-		// assert (node.hint() == Hint.Constant);
-		Object v = node.getValue();
-		if (v instanceof String) {
-			this.mBuilder.push((String) v);
-		} else if (v instanceof Integer || v instanceof Character || v instanceof Byte) {
-			this.mBuilder.push(((Number) v).intValue());
-		} else if (v instanceof Double) {
-			this.mBuilder.push(((Double) v).doubleValue());
-		} else if (v instanceof Boolean) {
-			this.mBuilder.push(((Boolean) v).booleanValue());
-		} else if (v instanceof Long) {
-			this.mBuilder.push(((Long) v).longValue());
-		} else if (v instanceof Class<?>) {
-			this.mBuilder.push(Type.getType((Class<?>) v));
-		} else {
-			if (v != null) {
-				TODO("FIXME: Constant %s", v.getClass().getName());
-			}
-			this.mBuilder.pushNull();
-		}
-	}
-
 	private void visitDownCastHint(SyntaxTree node) {
 		visit(node.get(_expr));
 		this.mBuilder.checkCast(Type.getType(node.getClassType()));
@@ -207,7 +210,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 	}
 
 	public Class<?> closeClass() {
-		// cLoader.enabledDump = true;
+		this.cBuilder.buildConstPool();
 		Class<?> c = cLoader.definedAndLoadClass(this.cBuilder.getQualifiedClassName(), cBuilder.toByteArray());
 		this.cBuilder = null;
 		return c;
@@ -312,94 +315,99 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 	}
 
 	/* class */
-	public Class<?> compileClass(SyntaxTree node) {
-		String name = node.getText(_name, null);
-		SyntaxTree implNode = node.get(_impl, null);
-		SyntaxTree bodyNode = node.get(_body, null);
-		Class<?> superClass = null;
-		if (node.has(_super)) {
-			superClass = typeSystem.getType(classPath + node.getText(_super, null)).getClass();
-		}
-		Class<?>[] implClasses = null;
-		if (implNode != null) {
-			implClasses = new Class<?>[implNode.size()];
-			for (int i = 0; i < implNode.size(); i++) {
-				implClasses[i] = typeSystem.getType(classPath + implNode.getText(i, null)).getClass();
-			}
-		}
-		openClass(name, superClass, implClasses);
-		this.cBuilder.visitSource(node.getSource().getResourceName(), null);
-		for (SyntaxTree n : bodyNode) {
-			visit(n);
-		}
-		return closeClass();
-	}
-
-	public class ClassDecl extends Undefined {
-		@Override
-		public void acceptAsm(SyntaxTree node) {
-			String name = node.getText(_name, null);
-			SyntaxTree implNode = node.get(_impl, null);
-			SyntaxTree bodyNode = node.get(_body, null);
-			Class<?> superClass = null;
-			if (node.has(_super)) {
-				superClass = typeSystem.getType(classPath + node.getText(_super, null)).getClass();
-			}
-			Class<?>[] implClasses = null;
-			if (implNode != null) {
-				implClasses = new Class<?>[implNode.size()];
-				for (int i = 0; i < implNode.size(); i++) {
-					implClasses[i] = typeSystem.getType(classPath + implNode.getText(i, null)).getClass();
-				}
-			}
-			openClass(name, superClass, implClasses);
-			cBuilder.visitSource(node.getSource().getResourceName(), null);
-			for (SyntaxTree n : bodyNode) {
-				visit(n);
-			}
-			closeClass();
-		}
-	}
-
-	public class Constructor extends Undefined {
-		@Override
-		public void acceptAsm(SyntaxTree node) {
-			SyntaxTree args = node.get(_param);
-			Class<?>[] paramClasses = new Class<?>[args.size()];
-			for (int i = 0; i < args.size(); i++) {
-				paramClasses[i] = args.get(i).getClassType();
-			}
-			mBuilder = cBuilder.newConstructorBuilder(Opcodes.ACC_PUBLIC, paramClasses);
-			mBuilder.enterScope();
-			for (SyntaxTree arg : args) {
-				mBuilder.defineArgument(arg.getText(_name, null), arg.getClassType());
-			}
-			visit(node.get(_body));
-			mBuilder.exitScope();
-			mBuilder.loadThis();
-			mBuilder.returnValue();
-			mBuilder.endMethod();
-		}
-	}
-
-	public class FieldDecl extends Undefined {
-		@Override
-		public void acceptAsm(SyntaxTree node) {
-			// TODO
-			// TypedTree list = node.get(_list);
-			// for (TypedTree field : list) {
-			// cBuilder.addField(Opcodes.ACC_PUBLIC, field.getText(_name, null),
-			// this.typeof(field), );
-			// }
-		}
-	}
-
-	public class MethodDecl extends Undefined {
-		@Override
-		public void acceptAsm(SyntaxTree node) {
-			// TODO
-		}
-	}
+	// public Class<?> compileClass(SyntaxTree node) {
+	// String name = node.getText(_name, null);
+	// SyntaxTree implNode = node.get(_impl, null);
+	// SyntaxTree bodyNode = node.get(_body, null);
+	// Class<?> superClass = null;
+	// if (node.has(_super)) {
+	// superClass = typeSystem.getType(classPath + node.getText(_super,
+	// null)).getClass();
+	// }
+	// Class<?>[] implClasses = null;
+	// if (implNode != null) {
+	// implClasses = new Class<?>[implNode.size()];
+	// for (int i = 0; i < implNode.size(); i++) {
+	// implClasses[i] = typeSystem.getType(classPath + implNode.getText(i,
+	// null)).getClass();
+	// }
+	// }
+	// openClass(name, superClass, implClasses);
+	// this.cBuilder.visitSource(node.getSource().getResourceName(), null);
+	// for (SyntaxTree n : bodyNode) {
+	// visit(n);
+	// }
+	// return closeClass();
+	// }
+	//
+	// public class ClassDecl extends Undefined {
+	// @Override
+	// public void acceptAsm(SyntaxTree node) {
+	// String name = node.getText(_name, null);
+	// SyntaxTree implNode = node.get(_impl, null);
+	// SyntaxTree bodyNode = node.get(_body, null);
+	// Class<?> superClass = null;
+	// if (node.has(_super)) {
+	// superClass = typeSystem.getType(classPath + node.getText(_super,
+	// null)).getClass();
+	// }
+	// Class<?>[] implClasses = null;
+	// if (implNode != null) {
+	// implClasses = new Class<?>[implNode.size()];
+	// for (int i = 0; i < implNode.size(); i++) {
+	// implClasses[i] = typeSystem.getType(classPath + implNode.getText(i,
+	// null)).getClass();
+	// }
+	// }
+	// openClass(name, superClass, implClasses);
+	// cBuilder.visitSource(node.getSource().getResourceName(), null);
+	// for (SyntaxTree n : bodyNode) {
+	// visit(n);
+	// }
+	// closeClass();
+	// }
+	// }
+	//
+	// public class Constructor extends Undefined {
+	// @Override
+	// public void acceptAsm(SyntaxTree node) {
+	// SyntaxTree args = node.get(_param);
+	// Class<?>[] paramClasses = new Class<?>[args.size()];
+	// for (int i = 0; i < args.size(); i++) {
+	// paramClasses[i] = args.get(i).getClassType();
+	// }
+	// mBuilder = cBuilder.newConstructorBuilder(Opcodes.ACC_PUBLIC,
+	// paramClasses);
+	// mBuilder.enterScope();
+	// for (SyntaxTree arg : args) {
+	// mBuilder.defineArgument(arg.getText(_name, null), arg.getClassType());
+	// }
+	// visit(node.get(_body));
+	// mBuilder.exitScope();
+	// mBuilder.loadThis();
+	// mBuilder.returnValue();
+	// mBuilder.endMethod();
+	// }
+	// }
+	//
+	// public class FieldDecl extends Undefined {
+	// @Override
+	// public void acceptAsm(SyntaxTree node) {
+	// // TODO
+	// // TypedTree list = node.get(_list);
+	// // for (TypedTree field : list) {
+	// // cBuilder.addField(Opcodes.ACC_PUBLIC, field.getText(_name, null),
+	// // this.typeof(field), );
+	// // }
+	// }
+	// }
+	//
+	// public class MethodDecl extends Undefined {
+	// @Override
+	// public void acceptAsm(SyntaxTree node) {
+	// // TODO
+	// }
+	// }
 
 	private void visitStatementAsBlock(SyntaxTree node) {
 		if (!node.is(_Block)) {
@@ -569,60 +577,6 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 			mBuilder.getLoopLabels().pop();
 		}
 	}
-
-	//
-	// public class Switch extends Undefined {
-	// @Override
-	// public void acceptAsm(TypedTree node) {
-	// Label condLabel = mBuilder.newLabel();
-	// Label breakLabel = mBuilder.newLabel();
-	// mBuilder.getLoopLabels().push(new Pair<Label, Label>(breakLabel, null));
-	//
-	// Class<?> condType = node.get(_cond).getClassType();
-	// TypedTree body = node.get(_body);
-	// int size = body.size();
-	// Label labels[] = new Label[size];
-	// int dfIndex = -1;
-	//
-	// mBuilder.goTo(condLabel);
-	//
-	// // Block
-	// for (int i = 0; i < size; i++) {
-	// labels[i] = mBuilder.newLabel();
-	// mBuilder.mark(labels[i]);
-	// visitStatementAsBlock(body.get(i));
-	// }
-	// mBuilder.goTo(breakLabel);
-	//
-	// // Condition
-	// mBuilder.mark(condLabel);
-	// visit(node.get(_cond));
-	// String condValName = "#SwitchCondValue" + switchUnique;
-	// VarEntry condVar = mBuilder.createNewVarAndStore(condValName, condType);
-	// switchUnique++;
-	//
-	// for (int i = 0; i < size; i++) {
-	// TypedTree condNode = body.get(i).get(_cond);
-	// if (condLabel != null) {
-	// // SwitchCase
-	// mBuilder.loadFromVar(condVar);
-	// visit(condNode);
-	// } else {
-	// // SwitchDefault
-	// dfIndex = i;
-	// }
-	// mBuilder.ifCmp(Type.getType(condType), Opcodes.IFEQ, labels[i]);
-	// }
-	//
-	// // HasDefault
-	// if (dfIndex != -1) {
-	// mBuilder.goTo(labels[dfIndex]);
-	// }
-	//
-	// mBuilder.mark(breakLabel);
-	// mBuilder.getLoopLabels().pop();
-	// }
-	// }
 
 	private boolean has(Symbol tag, SyntaxTree node) {
 		for (SyntaxTree sub : node) {
@@ -1276,274 +1230,6 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 	}
 
 	/* code copied from libzen */
-
-	// private JavaStaticFieldNode GenerateFunctionAsSymbolField(String
-	// FuncName, ZFunctionNode Node) {
-	// @Var ZFuncType FuncType = Node.GetFuncType();
-	// String ClassName = this.NameFunctionClass(FuncName, FuncType);
-	// Class<?> FuncClass = this.LoadFuncClass(FuncType);
-	// @Var AsmClassBuilder ClassBuilder =
-	// this.AsmLoader.NewClass(ACC_PUBLIC|ACC_FINAL, Node, ClassName,
-	// FuncClass);
-	//
-	// AsmMethodBuilder InvokeMethod = ClassBuilder.NewMethod(ACC_PUBLIC |
-	// ACC_FINAL, "Invoke", FuncType);
-	// int index = 1;
-	// for(int i = 0; i < FuncType.GetFuncParamSize(); i++) {
-	// Type AsmType = this.AsmType(FuncType.GetFuncParamType(i));
-	// InvokeMethod.visitVarInsn(AsmType.getOpcode(ILOAD), index);
-	// index += AsmType.getSize();
-	// }
-	// InvokeMethod.visitMethodInsn(INVOKESTATIC, ClassName, "f", FuncType);
-	// InvokeMethod.visitReturn(FuncType.GetReturnType());
-	// InvokeMethod.Finish();
-	//
-	// ClassBuilder.AddField(ACC_PUBLIC | ACC_STATIC | ACC_FINAL, "function",
-	// FuncClass, null);
-	//
-	//
-	// FuncClass = this.AsmLoader.LoadGeneratedClass(ClassName);
-	// this.SetGeneratedClass(ClassName, FuncClass);
-	// return new JavaStaticFieldNode(null, FuncClass, FuncType, "function");
-	// }
-
-	// @Override public void VisitArrayLiteralNode(ZArrayLiteralNode Node) {
-	// if(Node.IsUntyped()) {
-	// ZLogger._LogError(Node.SourceToken, "ambigious array");
-	// this.mBuilder.visitInsn(Opcodes.ACONST_NULL);
-	// }
-	// else {
-	// Class<?> ArrayClass = LibAsm.AsArrayClass(Node.Type);
-	// String Owner = Type.getInternalName(ArrayClass);
-	// this.mBuilder.visitTypeInsn(NEW, Owner);
-	// this.mBuilder.visitInsn(DUP);
-	// this.mBuilder.PushInt(Node.Type.TypeId);
-	// this.mBuilder.PushNodeListAsArray(LibAsm.AsElementClass(Node.Type), 0,
-	// Node);
-	// this.mBuilder.SetLineNumber(Node);
-	// this.mBuilder.visitMethodInsn(INVOKESPECIAL, Owner, "<init>",
-	// LibAsm.NewArrayDescriptor(Node.Type));
-	// }
-	// }
-
-	// @Override
-	// public void VisitMapLiteralNode(ZMapLiteralNode Node) {
-	// if (Node.IsUntyped()) {
-	// ZLogger._LogError(Node.SourceToken, "ambigious map");
-	// this.mBuilder.visitInsn(Opcodes.ACONST_NULL);
-	// } else {
-	// String Owner = Type.getInternalName(ZObjectMap.class);
-	// this.mBuilder.visitTypeInsn(NEW, Owner);
-	// this.mBuilder.visitInsn(DUP);
-	// this.mBuilder.PushInt(Node.Type.TypeId);
-	// this.mBuilder.PushInt(Node.GetListSize() * 2);
-	// this.mBuilder.visitTypeInsn(ANEWARRAY,
-	// Type.getInternalName(Object.class));
-	// for (int i = 0; i < Node.GetListSize(); i++) {
-	// ZMapEntryNode EntryNode = Node.GetMapEntryNode(i);
-	// this.mBuilder.visitInsn(DUP);
-	// this.mBuilder.PushInt(i * 2);
-	// this.mBuilder.PushNode(String.class, EntryNode.KeyNode());
-	// this.mBuilder.visitInsn(Opcodes.AASTORE);
-	// this.mBuilder.visitInsn(DUP);
-	// this.mBuilder.PushInt(i * 2 + 1);
-	// this.mBuilder.PushNode(Object.class, EntryNode.ValueNode());
-	// this.mBuilder.visitInsn(Opcodes.AASTORE);
-	// }
-	// this.mBuilder.SetLineNumber(Node);
-	// String Desc = Type.getMethodDescriptor(Type.getType(void.class), new
-	// Type[] { Type.getType(int.class), Type.getType(Object[].class) });
-	// this.mBuilder.visitMethodInsn(INVOKESPECIAL, Owner, "<init>", Desc);
-	// }
-	// }
-	//
-	// @Override
-	// public void VisitNewObjectNode(ZNewObjectNode Node) {
-	// if (Node.IsUntyped()) {
-	// ZLogger._LogError(Node.SourceToken, "no class for new operator");
-	// this.mBuilder.visitInsn(Opcodes.ACONST_NULL);
-	// } else {
-	// String ClassName = Type.getInternalName(this.GetJavaClass(Node.Type));
-	// this.mBuilder.visitTypeInsn(NEW, ClassName);
-	// this.mBuilder.visitInsn(DUP);
-	// Constructor<?> jMethod = this.GetConstructor(Node.Type, Node);
-	// if (jMethod != null) {
-	// Class<?>[] P = jMethod.getParameterTypes();
-	// for (int i = 0; i < P.length; i++) {
-	// this.mBuilder.PushNode(P[i], Node.GetListAt(i));
-	// }
-	// this.mBuilder.SetLineNumber(Node);
-	// this.mBuilder.visitMethodInsn(INVOKESPECIAL, ClassName, "<init>",
-	// Type.getConstructorDescriptor(jMethod));
-	// } else {
-	// ZLogger._LogError(Node.SourceToken, "no constructor: " + Node.Type);
-	// this.mBuilder.visitInsn(Opcodes.ACONST_NULL);
-	// }
-	// }
-	// }
-	//
-	// public void VisitStaticFieldNode(JavaStaticFieldNode Node) {
-	// this.mBuilder.visitFieldInsn(Opcodes.GETSTATIC,
-	// Type.getInternalName(Node.StaticClass), Node.FieldName,
-	// this.GetJavaClass(Node.Type));
-	// }
-	//
-	// @Override
-	// public void VisitGlobalNameNode(ZGlobalNameNode Node) {
-	// if (Node.IsFuncNameNode()) {
-	// this.mBuilder.visitFieldInsn(Opcodes.GETSTATIC,
-	// this.NameFunctionClass(Node.GlobalName, Node.FuncType), "f",
-	// this.GetJavaClass(Node.Type));
-	// } else if (!Node.IsUntyped()) {
-	// this.mBuilder.visitFieldInsn(Opcodes.GETSTATIC,
-	// this.NameGlobalNameClass(Node.GlobalName), "_",
-	// this.GetJavaClass(Node.Type));
-	// } else {
-	// ZLogger._LogError(Node.SourceToken, "undefined symbol: " +
-	// Node.GlobalName);
-	// this.mBuilder.visitInsn(Opcodes.ACONST_NULL);
-	// }
-	// }
-	//
-	// @Override
-	// public void VisitGetterNode(ZGetterNode Node) {
-	// if (Node.IsUntyped()) {
-	// Method sMethod = JavaMethodTable.GetStaticMethod("GetField");
-	// ZNode NameNode = new ZStringNode(Node, null, Node.GetName());
-	// this.mBuilder.ApplyStaticMethod(Node, sMethod, new ZNode[] {
-	// Node.RecvNode(), NameNode });
-	// } else {
-	// Class<?> RecvClass = this.GetJavaClass(Node.RecvNode().Type);
-	// Field jField = this.GetField(RecvClass, Node.GetName());
-	// String Owner = Type.getType(RecvClass).getInternalName();
-	// String Desc = Type.getType(jField.getType()).getDescriptor();
-	// if (Modifier.isStatic(jField.getModifiers())) {
-	// this.mBuilder.visitFieldInsn(Opcodes.GETSTATIC, Owner, Node.GetName(),
-	// Desc);
-	// } else {
-	// this.mBuilder.PushNode(null, Node.RecvNode());
-	// this.mBuilder.visitFieldInsn(GETFIELD, Owner, Node.GetName(), Desc);
-	// }
-	// this.mBuilder.CheckReturnCast(Node, jField.getType());
-	// }
-	// }
-	//
-	// @Override
-	// public void VisitSetterNode(ZSetterNode Node) {
-	// if (Node.IsUntyped()) {
-	// Method sMethod = JavaMethodTable.GetStaticMethod("SetField");
-	// ZNode NameNode = new ZStringNode(Node, null, Node.GetName());
-	// this.mBuilder.ApplyStaticMethod(Node, sMethod, new ZNode[] {
-	// Node.RecvNode(), NameNode, Node.ExprNode() });
-	// } else {
-	// Class<?> RecvClass = this.GetJavaClass(Node.RecvNode().Type);
-	// Field jField = this.GetField(RecvClass, Node.GetName());
-	// String Owner = Type.getType(RecvClass).getInternalName();
-	// String Desc = Type.getType(jField.getType()).getDescriptor();
-	// if (Modifier.isStatic(jField.getModifiers())) {
-	// this.mBuilder.PushNode(jField.getType(), Node.ExprNode());
-	// this.mBuilder.visitFieldInsn(PUTSTATIC, Owner, Node.GetName(), Desc);
-	// } else {
-	// this.mBuilder.PushNode(null, Node.RecvNode());
-	// this.mBuilder.PushNode(jField.getType(), Node.ExprNode());
-	// this.mBuilder.visitFieldInsn(PUTFIELD, Owner, Node.GetName(), Desc);
-	// }
-	// }
-	// }
-	//
-	// @Override
-	// public void VisitGetIndexNode(ZGetIndexNode Node) {
-	// Method sMethod =
-	// JavaMethodTable.GetBinaryStaticMethod(Node.RecvNode().Type, "[]",
-	// Node.IndexNode().Type);
-	// this.mBuilder.ApplyStaticMethod(Node, sMethod, new ZNode[] {
-	// Node.RecvNode(), Node.IndexNode() });
-	// }
-	//
-	// @Override
-	// public void VisitSetIndexNode(ZSetIndexNode Node) {
-	// Method sMethod =
-	// JavaMethodTable.GetBinaryStaticMethod(Node.RecvNode().Type, "[]=",
-	// Node.IndexNode().Type);
-	// this.mBuilder.ApplyStaticMethod(Node, sMethod, new ZNode[] {
-	// Node.RecvNode(), Node.IndexNode(), Node.ExprNode() });
-	// }
-	//
-	// @Override
-	// public void VisitMethodCallNode(ZMethodCallNode Node) {
-	// this.mBuilder.SetLineNumber(Node);
-	// Method jMethod = this.GetMethod(Node.RecvNode().Type, Node.MethodName(),
-	// Node);
-	// if (jMethod != null) {
-	// if (!Modifier.isStatic(jMethod.getModifiers())) {
-	// this.mBuilder.PushNode(null, Node.RecvNode());
-	// }
-	// Class<?>[] P = jMethod.getParameterTypes();
-	// for (int i = 0; i < P.length; i++) {
-	// this.mBuilder.PushNode(P[i], Node.GetListAt(i));
-	// }
-	// int inst = this.GetInvokeType(jMethod);
-	// String owner = Type.getInternalName(jMethod.getDeclaringClass());
-	// this.mBuilder.visitMethodInsn(inst, owner, jMethod.getName(),
-	// Type.getMethodDescriptor(jMethod));
-	// this.mBuilder.CheckReturnCast(Node, jMethod.getReturnType());
-	// } else {
-	// jMethod = JavaMethodTable.GetStaticMethod("InvokeUnresolvedMethod");
-	// this.mBuilder.PushNode(Object.class, Node.RecvNode());
-	// this.mBuilder.PushConst(Node.MethodName());
-	// this.mBuilder.PushNodeListAsArray(Object.class, 0, Node);
-	// this.mBuilder.ApplyStaticMethod(Node, jMethod);
-	// }
-	// }
-	//
-	// @Override
-	// public void VisitInstanceOfNode(ZInstanceOfNode Node) {
-	// if (!(Node.LeftNode().Type instanceof ZGenericType)) {
-	// this.VisitNativeInstanceOfNode(Node);
-	// return;
-	// }
-	// Node.LeftNode().Accept(this);
-	// this.mBuilder.Pop(Node.LeftNode().Type);
-	// this.mBuilder.PushLong(Node.LeftNode().Type.TypeId);
-	// this.mBuilder.PushLong(Node.TargetType().TypeId);
-	// Method method = JavaMethodTable.GetBinaryStaticMethod(ZType.IntType,
-	// "==", ZType.IntType);
-	// String owner = Type.getInternalName(method.getDeclaringClass());
-	// this.mBuilder.visitMethodInsn(INVOKESTATIC, owner, method.getName(),
-	// Type.getMethodDescriptor(method));
-	// }
-	//
-	// private void VisitNativeInstanceOfNode(ZInstanceOfNode Node) {
-	// Class<?> JavaClass = this.GetJavaClass(Node.TargetType());
-	// if (Node.TargetType().IsIntType()) {
-	// JavaClass = Long.class;
-	// } else if (Node.TargetType().IsFloatType()) {
-	// JavaClass = Double.class;
-	// } else if (Node.TargetType().IsBooleanType()) {
-	// JavaClass = Boolean.class;
-	// }
-	// this.invokeBoxingMethod(Node.LeftNode());
-	// this.mBuilder.visitTypeInsn(INSTANCEOF, JavaClass);
-	// }
-	//
-	// private void invokeBoxingMethod(ZNode TargetNode) {
-	// Class<?> TargetClass = Object.class;
-	// if (TargetNode.Type.IsIntType()) {
-	// TargetClass = Long.class;
-	// } else if (TargetNode.Type.IsFloatType()) {
-	// TargetClass = Double.class;
-	// } else if (TargetNode.Type.IsBooleanType()) {
-	// TargetClass = Boolean.class;
-	// }
-	// Class<?> SourceClass = this.GetJavaClass(TargetNode.Type);
-	// Method Method = JavaMethodTable.GetCastMethod(TargetClass, SourceClass);
-	// TargetNode.Accept(this);
-	// if (!TargetClass.equals(Object.class)) {
-	// String owner = Type.getInternalName(Method.getDeclaringClass());
-	// this.mBuilder.visitMethodInsn(INVOKESTATIC, owner, Method.getName(),
-	// Type.getMethodDescriptor(Method));
-	// }
-	// }
 
 	void TRACE(String fmt, Object... args) {
 		Debug.TRACE(fmt, args);

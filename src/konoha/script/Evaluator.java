@@ -5,12 +5,12 @@ import konoha.ArrayInt;
 import konoha.asm.ScriptCompiler;
 import nez.ast.TreeVisitor2;
 
-public class ScriptEvaluator extends TreeVisitor2<TreeEvaluator> implements CommonSymbols {
+public class Evaluator extends TreeVisitor2<TreeEvaluator> implements CommonSymbols {
 	ScriptContext context;
 	TypeSystem typeSystem;
 	private ScriptCompiler compiler;
 
-	public ScriptEvaluator(ScriptContext sc, TypeSystem ts) {
+	public Evaluator(ScriptContext sc, TypeSystem ts) {
 		super();
 		init(new Undefined());
 		this.context = sc;

@@ -5,19 +5,19 @@ import java.lang.reflect.Type;
 
 import konoha.main.ConsoleUtils;
 import konoha.message.Message;
-import konoha.syntax.ScriptContextHacks;
+import konoha.syntax.ExtensibleScriptContext;
 import nez.Parser;
 import nez.io.SourceContext;
 
-public class ScriptContext extends ScriptContextHacks {
+public class ScriptContext extends ExtensibleScriptContext {
 
 	public ScriptContext(Parser parser) {
-		this.setParser(parser);
+		this.parser = parser;
 		this.typeSystem = new TypeSystem(this);
 		this.checker = new TypeChecker(this, getTypeSystem());
-		this.eval = new ScriptEvaluator(this, getTypeSystem());
+		this.eval = new Evaluator(this, getTypeSystem());
+		this.typeSystem.init();
 		this.set("__lookup__", getTypeSystem());
-		// new TypeChecker2();
 	}
 
 	public void setShellMode(boolean b) {
@@ -48,7 +48,7 @@ public class ScriptContext extends ScriptContextHacks {
 		if (node == null) {
 			log(source.getErrorMessage("error", Message.SyntaxError.toString()));
 			this.found = ScriptContextError.SyntaxError;
-			return ScriptEvaluator.empty; // nothing
+			return Evaluator.empty; // nothing
 		}
 		if (!node.is(CommonSymbols._Source)) {
 			node = node.newInstance(CommonSymbols._Source, node);
@@ -59,7 +59,7 @@ public class ScriptContext extends ScriptContextHacks {
 	public boolean enableASTDump = false;
 
 	private Object evalSource(SyntaxTree node) {
-		Object result = ScriptEvaluator.empty;
+		Object result = Evaluator.empty;
 		for (int i = 0; i < node.size(); i++) {
 			SyntaxTree sub = node.get(i);
 			if (enableASTDump) {
@@ -77,11 +77,11 @@ public class ScriptContext extends ScriptContextHacks {
 			if (found == ScriptContextError.NoError) {
 				result = eval.visit(typed);
 				if (typed.getType() == void.class) {
-					result = ScriptEvaluator.empty;
+					result = Evaluator.empty;
 				}
 			}
 		}
-		return found == ScriptContextError.NoError ? result : ScriptEvaluator.empty;
+		return found == ScriptContextError.NoError ? result : Evaluator.empty;
 	}
 
 	public Object get(String name) {

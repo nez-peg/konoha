@@ -21,8 +21,6 @@ public class TypeSystem extends FunctorLookup implements CommonSymbols {
 
 	public TypeSystem(ScriptContext context) {
 		this.context = context;
-		init();
-		initDebug();
 	}
 
 	void init() {
@@ -49,16 +47,17 @@ public class TypeSystem extends FunctorLookup implements CommonSymbols {
 		this.setType("RuntimeException", RuntimeException.class);
 		this.setType("NullPointerException", NullPointerException.class);
 		this.setType("ArithmeticException", ArithmeticException.class);
+		this.loadSyntaxClass(konoha.syntax.SelfAssign.class);
 	}
 
 	public void init(ScriptCompiler compl) {
 		this.compl = compl; // this is called when the complier is instatiated
 	}
 
-	void initDebug() {
-		this.setType("Math", Math.class);
-		this.setType("System", System.class);
-	}
+	// void initDebug() {
+	// this.setType("Math", Math.class);
+	// this.setType("System", System.class);
+	// }
 
 	/* mode */
 	protected boolean shellMode = false;
@@ -204,6 +203,10 @@ public class TypeSystem extends FunctorLookup implements CommonSymbols {
 
 	public void loadStaticFunctionClass(Class<?> c, boolean isGenerated) {
 		this.addSymbol(c);
+	}
+
+	public void loadSyntaxClass(Class<?> c) {
+		Hacker.hack(c, context);
 	}
 
 	public void importStaticClass(String path) throws ClassNotFoundException {
