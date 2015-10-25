@@ -91,6 +91,7 @@ public class ClassBuilder extends ClassWriter implements Opcodes {
 			m.putStatic(this.getTypeDesc(), constName(i), fieldType);
 		}
 		m.returnValue();
+		m.endMethod();
 		constList = null;
 	}
 
