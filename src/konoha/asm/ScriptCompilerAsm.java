@@ -811,9 +811,9 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 				int left = evalKey(node.get(_left));
 				int right = evalKey(node.get(_right));
 				result = left / right;
-			} else if (node.getClassType() == int.class) {
+			} else if (node.is(_Const) && node.getClassType() == int.class) {
 				result = (int) node.getValue();
-			} else if (node.getClassType() == String.class) {
+			} else if (node.is(_Const) && node.getClassType() == String.class) {
 				result = ((String) node.getValue()).hashCode();
 			}
 			return result;
