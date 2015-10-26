@@ -34,6 +34,11 @@ public class Evaluator extends TreeVisitor2<TreeEvaluator> implements CommonSymb
 			context.log("[TODO]: Interperter " + node);
 			return null;
 		}
+
+		@Override
+		public boolean isConst(SyntaxTree node) {
+			return false;
+		}
 	}
 
 	public class _Functor extends Undefined {

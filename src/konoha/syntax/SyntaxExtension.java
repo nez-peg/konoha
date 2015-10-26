@@ -35,6 +35,11 @@ public abstract class SyntaxExtension implements TreeChecker, TreeDesugar, TreeE
 	}
 
 	@Override
+	public boolean isConst(SyntaxTree node) {
+		return false;
+	}
+
+	@Override
 	public Object acceptEval(SyntaxTree node) {
 		// Default: should be desugared to Konoha CommonTags
 		return null;
