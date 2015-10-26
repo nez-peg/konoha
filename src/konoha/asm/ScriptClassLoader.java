@@ -8,8 +8,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 import konoha.main.ConsoleUtils;
+import konoha.script.Debug;
 import konoha.script.TypeSystem;
-import nez.main.Verbose;
 
 /**
  * used for user defined class loading. not thread safe.
@@ -173,7 +173,7 @@ public class ScriptClassLoader extends ClassLoader {
 			} catch (IOException e) {
 				ConsoleUtils.println("cannot dump " + classFileName + " caused by " + e);
 			} catch (InterruptedException e) {
-				Verbose.traceException(e);
+				Debug.traceException(e);
 			}
 		}
 	}

@@ -1,5 +1,5 @@
 package konoha.main;
 
 public class Revision {
-	public final static int REV=72;
+	public final static int REV=73;
 }

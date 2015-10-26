@@ -67,7 +67,7 @@ public class Main {
 
 	private static void show(CommandContext config) {
 		ConsoleUtils.bold();
-		ConsoleUtils.println("Konoha " + Version + " U(" + config.newGrammar().getDesc() + ") on Nez " + nez.main.Command.Version);
+		ConsoleUtils.println("Konoha " + Version + " U(" + config.newGrammar().getDesc() + ") on Nez " + nez.Version.Version);
 		ConsoleUtils.end();
 		ConsoleUtils.println(Copyright);
 		ConsoleUtils.println("Copyright (c) 2015, Kimio Kuramitsu, Yokohama National University");

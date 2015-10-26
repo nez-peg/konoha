@@ -17,12 +17,11 @@ public class RegExp extends SyntaxExtension {
 
 	@Override
 	public String getName() {
-		return "Integer";
+		return "RegExp";
 	}
 
 	@Override
 	public Type acceptType(SyntaxTree node) {
-		// TODO;;
 		return null;
 	}
 
