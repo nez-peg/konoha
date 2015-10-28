@@ -4,6 +4,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.math.BigInteger;
+import java.util.ArrayList;
 
 import konoha.Function;
 import konoha.asm.DynamicMember;
@@ -506,15 +507,32 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 		}
 	}
 
+	private Symbol _NewArray2 = Symbol.tag("NewArray2");
+
 	public class NewArray extends Undefined {
 		@Override
 		public Type acceptType(SyntaxTree node) {
 			// FIXME only supported for single dimensinal array
 			// #NewArray[$size: #Integer]
 			Type t = resolveType(node.get(_type), null);
-			SyntaxTree size = node.get(_type).get(_size);
-			node.sub(_size, size);
-			enforceType(int.class, node, _size);
+
+			ArrayList<SyntaxTree> sizeList = new ArrayList<>();
+			SyntaxTree base = node.get(_type);
+			while (base != null && base.has(_size)) {
+				sizeList.add(base.get(_size));
+				base = base.get(_base);
+			}
+
+			node.sub();
+			int i = 0;
+			for (SyntaxTree size : sizeList) {
+				node.add(_size, size);
+				enforceType(int.class, node, i);
+				i++;
+			}
+			if (i > 1) {
+				node.setTag(_NewArray2);
+			}
 			// #NewArray[$size: #Integer]
 			return t;
 		}
@@ -523,22 +541,40 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 	public Type typeVarDecl(SyntaxTree node) {
 		boolean isArrayName = false;
 		String name = node.getText(_name, null);
-		SyntaxTree arraySize = null;
+		ArrayList<SyntaxTree> arraySizeList = null;
 		if (node.get(_name).is(_ArrayName)) {
 			name = node.get(_name).getText(_name, null);
-			arraySize = node.get(_name).get(_param, null);
+			arraySizeList = new ArrayList<>();
+			SyntaxTree arrayName = node.get(_name);
+			while (arrayName != null && arrayName.is(_ArrayName)) {
+				arraySizeList.add(arrayName.get(_param, null));
+				arrayName = arrayName.get(_name, null);
+			}
 			isArrayName = true;
 		}
 		Type type = resolveType(node.get(_type, null), null);
 		if (type != null) {
 			if (isArrayName) {
-				type = typeSystem.newArrayType(type);
-				if (!node.has(_expr) && arraySize != null) {
+				if (!node.has(_expr) && arraySizeList != null) {
 					this.reportWarning(node.get(_name), Message.CStyleArray);
-					SyntaxTree expr = node.newInstance(_NewArray, _size, arraySize);
-					enforceType(int.class, expr, _size);
+					SyntaxTree expr = node.newInstance(_NewArray);
+					SyntaxTree arrayName = node.get(_name);
+					while (arrayName.has(_name)) {
+						arrayName = arrayName.get(_name);
+					}
+					int i = 0;
+					for (SyntaxTree arraySize : arraySizeList) {
+						type = typeSystem.newArrayType(type);
+						expr.add(_size, arraySize);
+						enforceType(int.class, expr, i);
+						i++;
+					}
 					expr.setType(type);
-					node.add(_expr, expr);
+					if (i > 1) {
+						expr.setTag(_NewArray2);
+					}
+					// node.add(_expr, expr);
+					node.sub(_type, node.get(_type), _name, arrayName, _expr, expr);
 				}
 			}
 			if (node.has(_expr)) {
@@ -574,11 +610,24 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 		if (node.get(_name).is(_ArrayName)) {
 			name = node.get(_name).getText(_name, null);
 			type = typeSystem.newArrayType(type);
-			SyntaxTree arraySize = node.get(_name).get(_param, null);
-			if (!node.has(_expr) && arraySize != null) {
+			ArrayList<SyntaxTree> arraySizeList = new ArrayList<>();
+			SyntaxTree arrayName = node.get(_name);
+			while (arrayName != null && arrayName.is(_ArrayName)) {
+				arraySizeList.add(arrayName.get(_param, null));
+				arrayName = arrayName.get(_name, null);
+			}
+			if (!node.has(_expr) && arraySizeList != null) {
 				this.reportWarning(node.get(_name), Message.CStyleArray);
-				SyntaxTree expr = node.newInstance(_NewArray, _size, arraySize);
-				enforceType(int.class, expr, _size);
+				SyntaxTree expr = node.newInstance(_NewArray);
+				int i = 0;
+				for (SyntaxTree arraySize : arraySizeList) {
+					expr.add(_size, arraySize);
+					enforceType(int.class, expr, i);
+					i++;
+				}
+				if (i > 0) {
+					expr.setTag(_NewArray2);
+				}
 				expr.setType(type);
 				node.add(_expr, expr);
 			}
@@ -1415,7 +1464,7 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 
 	private Type typeSetIndexer(SyntaxTree node, SyntaxTree indexer, SyntaxTree expr) {
 		Type recvType = visit(indexer.get(_recv));
-		Type exprType = visit(indexer.get(_expr));
+		Type exprType = visit(expr);
 		Type[] a = typeArguments(recvType, indexer.get(_param), exprType);
 		Functor f = typeSystem.getMethod(methodMatcher, recvType, "set", a);
 		if (f != null) {

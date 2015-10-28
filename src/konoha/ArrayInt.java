@@ -23,6 +23,7 @@ public class ArrayInt implements KonohaArray {
 	}
 
 	public final int set(int index, int value) {
+		this.ArrayValues[index] = value;
 		return this.ArrayValues[index];
 	}
 

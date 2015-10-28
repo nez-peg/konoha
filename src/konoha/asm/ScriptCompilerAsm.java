@@ -54,7 +54,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 			for (SyntaxTree sub : node) {
 				visit(sub);
 			}
-			push(node.getFunctor());
+			push(node.getFunctor(), node);
 		}
 	}
 
@@ -70,7 +70,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 		}
 	}
 
-	void push(Functor f) {
+	void push(Functor f, SyntaxTree node) {
 		if (f.ref instanceof java.lang.reflect.Method) {
 			java.lang.reflect.Method m = (java.lang.reflect.Method) f.ref;
 			if (Lang.isStatic(m)) {
@@ -79,6 +79,9 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 				this.mBuilder.invokeInterface(Type.getType(m.getDeclaringClass()), Method.getMethod(m));
 			} else {
 				this.mBuilder.invokeVirtual(Type.getType(m.getDeclaringClass()), Method.getMethod(m));
+			}
+			if (m.getReturnType() == Object.class && node.getClassType() != Object.class) {
+				this.mBuilder.checkCast(Type.getType(node.getClassType()));
 			}
 			return;
 		}
@@ -1150,6 +1153,32 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 			visit(node.get(_size));
 			mBuilder.newArray(Type.getType(elemClass));
 			mBuilder.invokeConstructor(Type.getType(node.getClassType()), Method.getMethod("void <init> (" + elemClass.getName() + "[])"));
+		}
+	}
+
+	public class NewArray2 extends Undefined {
+		@Override
+		public void acceptAsm(SyntaxTree node) {
+			Class<?> c = node.getClassType();
+			Class<?> subc = Lang.getArrayElementClass(node.getType());
+			Class<?> elemClass = Lang.getArrayElementClass(subc);
+			mBuilder.newInstance(Type.getType(c));
+			mBuilder.dup();
+			mBuilder.push(node.size());
+			mBuilder.newArray(Type.getType(subc));
+			int i = 0;
+			for (SyntaxTree size : node) {
+				mBuilder.dup();
+				mBuilder.push(i);
+				mBuilder.newInstance(Type.getType(subc));
+				mBuilder.dup();
+				visit(size);
+				mBuilder.newArray(Type.getType(elemClass));
+				mBuilder.invokeConstructor(Type.getType(subc), Method.getMethod("void <init> (" + elemClass.getName() + "[])"));
+				mBuilder.arrayStore(Type.getType(subc));
+				i++;
+			}
+			mBuilder.invokeConstructor(Type.getType(node.getClassType()), Method.getMethod("void <init> (Object[])"));
 		}
 	}
 
