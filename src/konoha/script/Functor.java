@@ -8,6 +8,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 
 import konoha.Function;
+import konoha.asm.DynamicMember;
 import konoha.asm.Prototype;
 import nez.util.ConsoleUtils;
 
@@ -212,6 +213,8 @@ public class Functor {
 			mh = ((Function) args[0]).mh;
 		} else if (ref instanceof Constructor<?>) {
 			mh = lookup.unreflectConstructor((Constructor<?>) ref);
+		} else if (ref instanceof DynamicMember) {
+
 		}
 		if (mh != null) {
 			return mh.invokeWithArguments(args);
