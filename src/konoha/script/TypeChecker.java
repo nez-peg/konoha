@@ -530,8 +530,10 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 				enforceType(int.class, node, i);
 				i++;
 			}
-			if (i > 1) {
+			if (i == 2) {
 				node.setTag(_NewArray2);
+			} else if (i > 2) {
+				throw error(node, "Unsupported " + i + " dimension array", node.getType());
 			}
 			// #NewArray[$size: #Integer]
 			return t;
