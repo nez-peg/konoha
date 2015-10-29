@@ -288,6 +288,20 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 		}
 	}
 
+	public class BlockExpression extends Undefined {
+		@Override
+		public Type acceptType(SyntaxTree node) {
+			if (inFunction()) {
+				function.beginLocalVarScope();
+			}
+			typeStatementList(node);
+			if (inFunction()) {
+				function.endLocalVarScope();
+			}
+			return node.get(node.size() - 1).getType();
+		}
+	}
+
 	public class StatementList extends Undefined {
 		@Override
 		public Type acceptType(SyntaxTree node) {

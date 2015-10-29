@@ -444,6 +444,28 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 		}
 	}
 
+	public class BlockExpression extends Undefined {
+		@Override
+		public void acceptAsm(SyntaxTree node) {
+			int size = node.size();
+			if (size == 0) {
+				visitDefaultValue(node);
+			} else {
+				mBuilder.enterScope();
+				for (int i = 0; i < size; i++) {
+					SyntaxTree stmt = node.get(i);
+					mBuilder.setLineNum(node.getLineNum()); // FIXME
+					visit(stmt);
+					assert (stmt.getType() != null);
+					if (stmt.getType() != void.class && i < size - 1) {
+						mBuilder.pop(stmt.getClassType());
+					}
+				}
+				mBuilder.exitScope();
+			}
+		}
+	}
+
 	public class If extends Undefined {
 		@Override
 		public void acceptAsm(SyntaxTree node) {

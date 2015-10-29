@@ -126,6 +126,16 @@ public class Evaluator extends TreeVisitor2<TreeEvaluator> implements CommonSymb
 	public class Block extends Undefined {
 		@Override
 		public Object acceptEval(SyntaxTree node) {
+			for (SyntaxTree child : node) {
+				visit(child);
+			}
+			return empty;
+		}
+	}
+
+	public class BlockExpression extends Undefined {
+		@Override
+		public Object acceptEval(SyntaxTree node) {
 			Object retVal = null;
 			for (SyntaxTree child : node) {
 				retVal = visit(child);
