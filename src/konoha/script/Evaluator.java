@@ -311,6 +311,23 @@ public class Evaluator extends TreeVisitor2<TreeEvaluator> implements CommonSymb
 		}
 	}
 
+	public class NewArray2 extends Undefined {
+		@Override
+		public Object acceptEval(SyntaxTree node) {
+			int sizex = (Integer) visit(node.get(0));
+			int sizey = (Integer) visit(node.get(1));
+			Class<?> type = node.getClassType();
+			Class<?> atype = Lang.getArrayElementClass(node.getType());
+			Class<?> aatype = Lang.getArrayElementClass(Lang.getArrayElementType(node.getType()));
+			Object aa = java.lang.reflect.Array.newInstance(aatype, sizey);
+			Object x = newArray(aatype, aa);
+			Object a = java.lang.reflect.Array.newInstance(aatype, sizey);
+			Object y = newArray(aatype, a);
+			Object[] val = { x, y };
+			return newArray(atype, val);
+		}
+	}
+
 	private Object newArray(Class<?> atype, Object a) {
 		if (atype == int.class) {
 			return new ArrayInt((int[]) a);

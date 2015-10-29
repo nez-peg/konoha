@@ -722,7 +722,13 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 		SyntaxTree leftnode = node.get(_left);
 		checkAssignable(leftnode);
 		if (leftnode.is(_Indexer)) {
-			return typeSetIndexer(node, node.get(_left), node.get(_right));
+			Type t = typeSetIndexer(node, node.get(_left), node.get(_right));
+			if (node.has(_left)) {
+				SyntaxTree setNode = node.get(_left);
+				node.sub(null, setNode);
+				node.setTag(_Block);
+			}
+			return t;
 		}
 		if (leftnode.is(_Field)) {
 			return typeSetField(node, node.get(_left));
@@ -1471,7 +1477,7 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 			return found(node, f, methodMatcher, indexer.get(_recv), indexer.get(_param), expr);
 		}
 		if (typeSystem.isDynamic(recvType)) {
-			return found(indexer, DynamicMember.newIndexSetter("set"), methodMatcher, indexer.get(_recv), indexer.get(_param));
+			return found(indexer, DynamicMember.newIndexSetter("set"), methodMatcher, indexer.get(_recv), indexer.get(_param), node.get(_right));
 		}
 		Functor[] unmatched = typeSystem.getMethods(recvType, "set");
 		return unfound(indexer, unmatched, Message.Indexer_, name(recvType));
