@@ -1,9 +1,13 @@
 package konoha.asm;
 
+import java.lang.invoke.CallSite;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 
+import konoha.dynamic.DynamicCallSite;
 import konoha.main.ConsoleUtils;
 import konoha.script.CommonSymbols;
 import konoha.script.Debug;
@@ -15,6 +19,7 @@ import konoha.script.TypeSystem;
 import nez.ast.Symbol;
 import nez.ast.TreeVisitor2;
 
+import org.objectweb.asm.Handle;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -64,8 +69,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 			this.mBuilder.newInstance(Type.getType(c.getDeclaringClass()));
 			this.mBuilder.dup();
 			return;
-		}
-		if (f.ref instanceof Prototype) {
+		} else if (f.ref instanceof Prototype) {
 			((Prototype) f.ref).prepare(this.mBuilder);
 		}
 	}
@@ -83,9 +87,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 			if (m.getReturnType() == Object.class && node.getClassType() != Object.class) {
 				this.mBuilder.checkCast(Type.getType(node.getClassType()));
 			}
-			return;
-		}
-		if (f.ref instanceof java.lang.reflect.Field) {
+		} else if (f.ref instanceof java.lang.reflect.Field) {
 			Field fld = (Field) f.ref;
 			Type owner = Type.getType(fld.getDeclaringClass());
 			String name = fld.getName();
@@ -114,15 +116,18 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 					this.mBuilder.putField(owner, name, fieldType);
 				}
 			}
-			return;
-		}
-		if (f.ref instanceof java.lang.reflect.Constructor) {
+		} else if (f.ref instanceof java.lang.reflect.Constructor) {
 			java.lang.reflect.Constructor<?> c = (java.lang.reflect.Constructor<?>) f.ref;
 			this.mBuilder.invokeConstructor(Type.getType(c.getDeclaringClass()), Method.getMethod(c));
-			return;
-		}
-		if (f.ref instanceof Prototype) {
+		} else if (f.ref instanceof Prototype) {
 			((Prototype) f.ref).push(this.mBuilder);
+		} else if (f.ref instanceof DynamicCallSite) {
+			DynamicCallSite site = (DynamicCallSite) f.ref;
+			String desc = site.type().toMethodDescriptorString();
+			Type[] paramTypes = { Type.getType(MethodHandles.Lookup.class), Type.getType(String.class), Type.getType(MethodType.class) };
+			Method methodDesc = new Method("bootstrap", Type.getType(CallSite.class), paramTypes);
+			Handle handle = new Handle(Opcodes.H_INVOKESTATIC, Type.getType(site.getClass()).getInternalName(), "bootstrap", methodDesc.getDescriptor());
+			this.mBuilder.invokeDynamic(site.encodeName(), desc, handle);
 		}
 	}
 

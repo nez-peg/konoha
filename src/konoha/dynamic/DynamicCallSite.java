@@ -29,13 +29,17 @@ public abstract class DynamicCallSite extends MutableCallSite {
 		for (int i = 0; i < paramTypes.length; i++) {
 			p[i] = Lang.toBox(Lang.toClassType(paramTypes[i]));
 		}
-		return MethodType.methodType(Lang.toBox(Lang.toClassType(returnType)), p);
+		return MethodType.methodType(Lang.toClassType(returnType), p);
 	}
 
 	final static String encode(TypeSystem ts, String name, Type[] paramTypes) {
 		int id = ConstPools.registTypeSystem(ts);
 		int paramid = ts.getIndyParameterTypes(paramTypes);
 		return name + "," + id + "," + paramid;
+	}
+
+	public final String encodeName() {
+		return encode(this.typeSystem, this.targetName, this.paramTypes);
 	}
 
 	protected static TypeMatcher threadUnsafeMatcher = new TypeMatcher();
@@ -177,13 +181,8 @@ public abstract class DynamicCallSite extends MutableCallSite {
 
 	// asm
 
-	public void asm(GeneratorAdapter adapter, Type returnType, String name, Type[] paramTypes) {
-		org.objectweb.asm.Type retType = org.objectweb.asm.Type.getType(Lang.toClassType(returnType));
-		org.objectweb.asm.Type[] p = new org.objectweb.asm.Type[paramTypes.length];
-		for (int i = 0; i < paramTypes.length; i++) {
-			p[i] = org.objectweb.asm.Type.getType(Lang.toClassType(paramTypes[i]));
-		}
-		String desc = org.objectweb.asm.Type.getMethodType(retType, p).getDescriptor();
+	public void asm(GeneratorAdapter adapter) {
+		String desc = this.type().toMethodDescriptorString();
 		adapter.invokeDynamic(this.targetName, desc, handle());
 	}
 
