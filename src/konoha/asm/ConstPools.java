@@ -7,7 +7,7 @@ public class ConstPools {
 	static TypeSystem[] typeSystems = new TypeSystem[0];
 	static UList<Object[]> constList = new UList<Object[]>(new Object[4][]);
 
-	static int typeSystemId(TypeSystem ts) {
+	public static int typeSystemId(TypeSystem ts) {
 		for (int i = 0; i < typeSystems.length; i++) {
 			if (typeSystems[i] == ts) {
 				return i;
@@ -16,7 +16,7 @@ public class ConstPools {
 		return -1;
 	}
 
-	static int registTypeSystem(TypeSystem ts) {
+	public static int registTypeSystem(TypeSystem ts) {
 		int id = typeSystemId(ts);
 		if (id == -1) {
 			TypeSystem[] newarray = new TypeSystem[typeSystems.length + 1];
@@ -25,6 +25,10 @@ public class ConstPools {
 			typeSystems = newarray;
 		}
 		return id;
+	}
+
+	public final static TypeSystem typeSystem(int id) {
+		return typeSystems[id];
 	}
 
 	static int registConstPools(Object[] pools) {

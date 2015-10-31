@@ -7,7 +7,7 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 
 import konoha.Function;
-import konoha.asm.DynamicMember;
+import konoha.dynamic.DynamicMethodCallSite;
 import konoha.message.Message;
 import nez.ast.Symbol;
 import nez.ast.TreeVisitor2;
@@ -905,7 +905,8 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 			if (ret == null) {
 				ret = left;
 			}
-			return makeIndy(node, KonohaFunctor.getIndyMethodFunctor(), name, a, node.get(_expr));
+			f = new Functor(Syntax.Operator, new DynamicMethodCallSite(typeSystem, name, ret, a));
+			return setDynamicFunctor(node, f, node.get(_left), node.get(_expr));
 		}
 		Functor[] fs = this.typeSystem.getMethods(left, name);
 		return unfound(node, fs, Message.Unary__, OperatorNames.name(name), name(left));
@@ -923,7 +924,8 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 			if (ret == null) {
 				ret = left;
 			}
-			return makeIndy(node, KonohaFunctor.getIndyMethodFunctor(), name, a, node.get(_left), node.get(_right));
+			f = new Functor(Syntax.Operator, new DynamicMethodCallSite(typeSystem, name, ret, a));
+			return setDynamicFunctor(node, f, node.get(_left), node.get(_right));
 		}
 		Functor[] fs = this.typeSystem.getMethods(left, name);
 		return unfound(node, fs, Message.Binary___, name(left), OperatorNames.name(name), name(right));
@@ -1328,7 +1330,9 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 			return found(node, f, methodMatcher, node.get(_recv));
 		}
 		if (typeSystem.isDynamic(recvType)) {
-			return found(node, DynamicMember.newGetter(name), methodMatcher, node.get(_recv));
+			// f = new Functor(Syntax.Getter, );
+			// return found(node, DynamicMember.newGetter(name), methodMatcher,
+			// node.get(_recv));
 		}
 		throw error(node.get(_name), Message.UndefinedField__, name(recvType), name);
 	}
@@ -1352,7 +1356,8 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 			return found(node, f, methodMatcher, field.get(_recv), node.get(_right));
 		}
 		if (typeSystem.isDynamic(recvType)) {
-			return found(node, DynamicMember.newSetter(name), methodMatcher, field.get(_recv), node.get(_right));
+			// return found(node, DynamicMember.newSetter(name), methodMatcher,
+			// field.get(_recv), node.get(_right));
 		}
 		throw error(field.get(_name), Message.UndefinedField__, name(recvType), name);
 	}
@@ -1415,7 +1420,8 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 				return found(node, f, methodMatcher, node.get(_recv), node.get(_param));
 			}
 			if (typeSystem.isDynamic(recvType)) {
-				return makeIndy(node, KonohaFunctor.getIndyMethodFunctor(), name, a, node.get(_recv), node.get(_param));
+				f = new Functor(Syntax.Method, new DynamicMethodCallSite(typeSystem, name, Object.class, a));
+				return setDynamicFunctor(node, f, node.get(_recv));
 			}
 			Functor[] unmatched = typeSystem.getMethods(recvType, name);
 			return unfound(node, unmatched, Message.Method__, name(recvType), name);
@@ -1477,7 +1483,8 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 				return found(indexer, f, methodMatcher, indexer.get(_recv), indexer.get(_param));
 			}
 			if (typeSystem.isDynamic(recvType)) {
-				return found(indexer, DynamicMember.newIndexGetter("get"), methodMatcher, indexer.get(_recv), indexer.get(_param));
+				// return found(indexer, DynamicMember.newIndexGetter("get"),
+				// methodMatcher, indexer.get(_recv), indexer.get(_param));
 			}
 			Functor[] unmatched = typeSystem.getMethods(recvType, "get");
 			return unfound(indexer, unmatched, Message.Indexer_, name(recvType));
@@ -1493,7 +1500,9 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 			return found(node, f, methodMatcher, indexer.get(_recv), indexer.get(_param), expr);
 		}
 		if (typeSystem.isDynamic(recvType)) {
-			return found(indexer, DynamicMember.newIndexSetter("set"), methodMatcher, indexer.get(_recv), indexer.get(_param), node.get(_right));
+			// return found(indexer, DynamicMember.newIndexSetter("set"),
+			// methodMatcher, indexer.get(_recv), indexer.get(_param),
+			// node.get(_right));
 		}
 		Functor[] unmatched = typeSystem.getMethods(recvType, "set");
 		return unfound(indexer, unmatched, Message.Indexer_, name(recvType));
@@ -1771,19 +1780,12 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 		return returnType;
 	}
 
-	private Type makeIndy(SyntaxTree node, Functor f, String name, Type[] a, SyntaxTree... trees) {
-		SyntaxTree tlookup = node.newInstance(_Name, 0, "__lookup__");
-		visit(tlookup); // typed
-		SyntaxTree tname = node.newConst(String.class, name);
-		SyntaxTree tparam = node.newConst(int.class, typeSystem.getIndyParameterTypes(a));
-		SyntaxTree targs = node.newInstance(_Array, 0, null);
-		targs.makeFlattenedList(trees);
-		for (int i = 0; i < targs.size(); i++) {
-			enforceType(Object.class, targs, i);
+	public Type setDynamicFunctor(SyntaxTree node, Functor f, SyntaxTree... trees) {
+		node.makeFlattenedList(trees);
+		for (int i = 0; i < node.size(); i++) {
+			enforceType(Object.class, node, i);
 		}
-		targs.setType(Object[].class);
 		node.setTag(_Functor);
-		node.makeFlattenedList(tlookup, tname, tparam, targs);
 		node.setValue(f);
 		return Object.class;
 	}

@@ -7,6 +7,8 @@ import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.util.HashMap;
+import java.util.Map;
 
 import konoha.ArrayInt;
 import konoha.KonohaArray;
@@ -20,6 +22,52 @@ public class Lang {
 			return (Class<?>) type;
 		}
 		return ((GenericType) type).base;
+	}
+
+	private final static Map<Class<?>, Class<?>> unboxMap = new HashMap<>();
+	static {
+		unboxMap.put(Boolean.class, boolean.class);
+		unboxMap.put(Byte.class, byte.class);
+		unboxMap.put(Character.class, char.class);
+		unboxMap.put(Short.class, short.class);
+		unboxMap.put(Integer.class, int.class);
+		unboxMap.put(Float.class, float.class);
+		unboxMap.put(Long.class, long.class);
+		unboxMap.put(Double.class, double.class);
+	}
+
+	public static Class<?> toUnbox(Class<?> c) {
+		return unboxMap.getOrDefault(c, c);
+	}
+
+	public static Type toUnbox(Type t) {
+		if (t instanceof Class<?>) {
+			return toUnbox((Class<?>) t);
+		}
+		return t;
+	}
+
+	private final static Map<Class<?>, Class<?>> boxMap = new HashMap<>();
+	static {
+		boxMap.put(boolean.class, Boolean.class);
+		boxMap.put(byte.class, Byte.class);
+		boxMap.put(char.class, Character.class);
+		boxMap.put(short.class, Short.class);
+		boxMap.put(int.class, Integer.class);
+		boxMap.put(float.class, Float.class);
+		boxMap.put(long.class, Long.class);
+		boxMap.put(double.class, Double.class);
+	}
+
+	public static Class<?> toBox(Class<?> c) {
+		return boxMap.getOrDefault(c, c);
+	}
+
+	public static Type toBox(Type t) {
+		if (t instanceof Class<?>) {
+			return toBox((Class<?>) t);
+		}
+		return t;
 	}
 
 	/* Array */
