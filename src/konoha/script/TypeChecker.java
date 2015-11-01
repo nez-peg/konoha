@@ -12,6 +12,7 @@ import konoha.dynamic.ComparatorSite;
 import konoha.dynamic.DynamicSite;
 import konoha.dynamic.GetterSite;
 import konoha.dynamic.MethodSite;
+import konoha.dynamic.SetterSite;
 import konoha.dynamic.UnarySite;
 import konoha.message.Message;
 import nez.ast.Symbol;
@@ -673,7 +674,7 @@ public abstract class TypeChecker extends VisitorMap<TreeChecker> implements Com
 		}
 		if (typeSystem.isDynamic(recvType)) {
 			Type exprType = visit(node.get(_right));
-			f = new Functor(Syntax.Setter, new GetterSite(typeSystem, name, void.class, new Type[] { recvType, exprType }));
+			f = new Functor(Syntax.Setter, new SetterSite(typeSystem, name, void.class, new Type[] { recvType, exprType }));
 			return setDynamicFunctor(node, f, field.get(_recv), node.get(_right));
 		}
 		throw error(field.get(_name), Message.UndefinedField__, name(recvType), name);

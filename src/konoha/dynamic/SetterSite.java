@@ -1,6 +1,7 @@
 package konoha.dynamic;
 
 import java.lang.invoke.CallSite;
+import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
@@ -33,6 +34,13 @@ public class SetterSite extends DynamicSite {
 	public Functor lookup(TypeMatcher m, String name, Type[] a) {
 		m.init(a[0]);
 		return typeSystem.getSetter(m, a[0], this.targetName);
+	}
+
+	@Override
+	public Object eval(Object... args) throws Throwable {
+		MethodHandle targetHandle = lookup(args);
+		targetHandle.invokeWithArguments(args);
+		return args[1];
 	}
 
 }

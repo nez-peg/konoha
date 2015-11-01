@@ -133,7 +133,7 @@ public abstract class DynamicSite extends MutableCallSite {
 		if (mh == null) {
 			unfound(Lang.toClassType(a[0]));
 		}
-		// System.out.println("BEFORE: " + mh);
+		// System.out.println("BEFORE: " + f + "\n\t" + mh);
 		MethodType mt = mh.type();
 		for (int i = 0; i < args.length; i++) {
 			Class<?> pc = mt.parameterType(i);
@@ -253,7 +253,7 @@ public abstract class DynamicSite extends MutableCallSite {
 		return targetHandle.invokeWithArguments(args);
 	}
 
-	public final Object eval(Object... args) throws Throwable {
+	public Object eval(Object... args) throws Throwable {
 		MethodHandle targetHandle = lookup(args);
 		return targetHandle.invokeWithArguments(args);
 	}

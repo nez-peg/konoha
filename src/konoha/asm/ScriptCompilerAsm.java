@@ -122,6 +122,9 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 		} else if (f.ref instanceof Prototype) {
 			((Prototype) f.ref).push(this.mBuilder);
 		} else if (f.ref instanceof DynamicSite) {
+			if (f.syntax == Syntax.Setter || f.syntax == Syntax.SetIndexer) {
+				this.mBuilder.dupX1();
+			}
 			DynamicSite site = (DynamicSite) f.ref;
 			String desc = site.type().toMethodDescriptorString();
 			Type[] paramTypes = { Type.getType(MethodHandles.Lookup.class), Type.getType(String.class), Type.getType(MethodType.class) };

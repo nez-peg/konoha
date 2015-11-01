@@ -299,7 +299,7 @@ public class Functor {
 
 	@Override
 	public String toString() {
-		return ref.toString();
+		return syntax + "[" + ref.toString() + "]";
 	}
 
 }
