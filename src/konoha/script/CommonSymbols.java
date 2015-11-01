@@ -37,6 +37,7 @@ public interface CommonSymbols {
 	public final static Symbol _ArrayType = Symbol.tag("ArrayType");
 	public final static Symbol _GenericType = Symbol.tag("GenericType");
 	public final static Symbol _TypeOf = Symbol.tag("TypeOf");
+	public final static Symbol _NewArray2 = Symbol.tag("NewArray2");
 
 	public final static Symbol _Functor = Symbol.tag("Functor");
 	public final static Symbol _Const = Symbol.tag("Const");

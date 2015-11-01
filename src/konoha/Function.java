@@ -1,9 +1,10 @@
 package konoha;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
 
-import konoha.script.Functor;
+import konoha.script.Debug;
 import konoha.script.Reflector;
 
 public abstract class Function {
@@ -12,6 +13,16 @@ public abstract class Function {
 
 	protected Function() {
 		f = Reflector.findInvokeMethod(this);
-		mh = Functor.toMethodHandler(f);
+		mh = toMethodHandle(f);
 	}
+
+	private static MethodHandle toMethodHandle(Method f) {
+		try {
+			return MethodHandles.lookup().unreflect(f);
+		} catch (IllegalAccessException e) {
+			Debug.traceException(e);
+		}
+		return null;
+	}
+
 }

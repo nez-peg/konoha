@@ -14,9 +14,9 @@ public class ScriptContext extends ExtensibleScriptContext {
 	public ScriptContext(Parser parser) {
 		this.parser = parser;
 		this.typeSystem = new TypeSystem(this);
-		this.checker = new TypeChecker(this, getTypeSystem());
+		this.checker = new KonohaChecker(this, getTypeSystem());
 		this.eval = new Evaluator(this, getTypeSystem());
-		this.typeSystem.init();
+		this.checker.init();
 		this.set("__lookup__", getTypeSystem());
 	}
 

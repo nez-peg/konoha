@@ -262,6 +262,13 @@ public class Evaluator extends TreeVisitor2<TreeEvaluator> implements CommonSymb
 		}
 	}
 
+	public class Not extends Undefined {
+		@Override
+		public Object acceptEval(SyntaxTree node) {
+			return !((Boolean) visit(node.get(_expr)));
+		}
+	}
+
 	public class Null extends Undefined {
 		@Override
 		public Object acceptEval(SyntaxTree node) {

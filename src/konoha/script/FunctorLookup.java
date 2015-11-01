@@ -22,6 +22,10 @@ public class FunctorLookup {
 		return f.getName() + "!" + t.getName();
 	}
 
+	private String keyNum(Class<?> f, Class<?> t) {
+		return f.getName() + "*" + t.getName();
+	}
+
 	private String keyFunc(String name, Type[] a) {
 		StringBuilder sb = new StringBuilder();
 		sb.append(a.length);
@@ -44,6 +48,17 @@ public class FunctorLookup {
 			sb.append(Lang.name(t));
 		}
 		return sb.toString();
+	}
+
+	private HashMap<String, Class<?>> unifyMap = new HashMap<>();
+
+	public final void addUnifyNumber(Class<?> c1, Class<?> c2) {
+		this.unifyMap.put(keyNum(c1, c2), c1);
+		this.unifyMap.put(keyNum(c2, c1), c1);
+	}
+
+	public final Class<?> unify(Class<?> c1, Class<?> c2) {
+		return unifyMap.get(keyNum(c1, c2));
 	}
 
 	/* coercion */

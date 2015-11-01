@@ -15,6 +15,29 @@ import konoha.KonohaArray;
 
 public class Lang {
 
+	public final static Type[] EmptyTypes = new Type[0];
+	public final static Class<?>[] EmptyClasses = new Class<?>[0];
+
+	public static final String name(Type t) {
+		if (t == null) {
+			return "untyped";
+		}
+		if (isKonohaArray(t) || isNativeArray(t)) {
+			return name(getArrayElementType(t)) + "[]";
+		}
+		if (t instanceof Class<?>) {
+			if (t == Object.class) {
+				return "?";
+			}
+			String n = ((Class<?>) t).getName();
+			if (n.startsWith("java.lang.")) {
+				return n.substring(10);
+			}
+			return n;
+		}
+		return t.toString();
+	}
+
 	/* Type */
 
 	public final static Class<?> toClassType(Type type) {
@@ -101,26 +124,6 @@ public class Lang {
 
 	public final static Class<?> getArrayElementClass(Type atype) {
 		return toClassType(getArrayElementType(atype));
-	}
-
-	public static final String name(Type t) {
-		if (t == null) {
-			return "untyped";
-		}
-		if (isKonohaArray(t) || isNativeArray(t)) {
-			return name(getArrayElementType(t)) + "[]";
-		}
-		if (t instanceof Class<?>) {
-			if (t == Object.class) {
-				return "?";
-			}
-			String n = ((Class<?>) t).getName();
-			if (n.startsWith("java.lang.")) {
-				return n.substring(10);
-			}
-			return n;
-		}
-		return t.toString();
 	}
 
 	public final static Type toPrimitiveType(Type t) {

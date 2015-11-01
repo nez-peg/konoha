@@ -5,38 +5,107 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 import konoha.Function;
-import konoha.dynamic.DynamicMethodCallSite;
+import konoha.dynamic.ComparatorSite;
+import konoha.dynamic.DynamicSite;
+import konoha.dynamic.GetterSite;
+import konoha.dynamic.MethodSite;
+import konoha.dynamic.UnarySite;
 import konoha.message.Message;
 import nez.ast.Symbol;
-import nez.ast.TreeVisitor2;
-import nez.util.StringUtils;
+import nez.util.VisitorMap;
 
-public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymbols {
-	ScriptContext context;
-	TypeSystem typeSystem;
+public abstract class TypeChecker extends VisitorMap<TreeChecker> implements CommonSymbols {
+	protected final ScriptContext context;
+	protected final TypeSystem typeSystem;
 
 	public TypeChecker(ScriptContext context, TypeSystem typeSystem) {
 		this.context = context;
 		this.typeSystem = typeSystem;
-		init(new Undefined());
 	}
 
-	public class Undefined implements TreeChecker {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			node.formatSourceMessage("error", "unsupproted type rule " + node);
-			Debug.TODO("TypeChecker for %s", node);
-			return void.class;
+	public abstract void init();
+
+	/* Visitor */
+
+	public Type visit(SyntaxTree node) {
+		Type c = node.getType();
+		if (c == null) {
+			if (this.isOperator(node)) {
+				c = this.typeOperator(node);
+			} else {
+				c = find(node.getTag().toString()).acceptType(node);
+			}
+			if (c == null) {
+				Debug.FIXME("UNTYPED NODE %s", node);
+			}
+			node.setType(c);
 		}
+		return c;
 	}
 
-	public class Error {
-		public Type type(SyntaxTree t) {
-			context.log(t.getText(_msg, ""));
-			return void.class;
+	/* Operator */
+
+	protected HashMap<String, DynamicSite> siteMap = new HashMap<>();
+
+	public final void add(String s, DynamicSite site) {
+		siteMap.put(s, site);
+	}
+
+	public final void add(Symbol s, DynamicSite site) {
+		siteMap.put(s.toString(), site);
+	}
+
+	public final Type typeBinary(SyntaxTree node, DynamicSite site) {
+		Type[] a = { visit(node.get(_left)), visit(node.get(_right)) };
+		Functor f = site.lookup(methodMatcher, a);
+		if (f != null) {
+			if (site instanceof ComparatorSite && f.get(0) == Object.class) {
+				/* Object comparators need to recheck at runtime */
+				f = null;
+			}
+			if (f != null) {
+				return found(node, f, methodMatcher);
+			}
 		}
+		if (typeSystem.isDynamic(a[0])) {
+			f = new Functor(Syntax.Operator, site.op(site.getTargetName(), Object.class, a));
+			return setDynamicFunctor(node, f, node.get(_left), node.get(_right));
+		}
+		Functor[] fs = this.typeSystem.getMethods(a[0], site.getTargetName());
+		return unfound(node, fs, Message.Binary___, name(a[0]), OperatorNames.name(site.getTargetName()), name(a[0]));
+	}
+
+	public final Type typeUnary(SyntaxTree node, DynamicSite site) {
+		Type[] a = { visit(node.get(_expr)) };
+		Functor f = site.lookup(methodMatcher, a);
+		if (f != null) {
+			return found(node, f, methodMatcher);
+		}
+		if (typeSystem.isDynamic(a[0])) {
+			f = new Functor(Syntax.Operator, site.op(site.getTargetName(), Object.class, a));
+			return setDynamicFunctor(node, f, node.get(_expr));
+		}
+		Functor[] fs = this.typeSystem.getMethods(a[0], site.getTargetName());
+		return unfound(node, fs, Message.Unary__, OperatorNames.name(site.getTargetName()), name(a[0]));
+	}
+
+	public final boolean isOperator(SyntaxTree node) {
+		DynamicSite site = this.siteMap.get(node.getTag().toString());
+		if (site != null) {
+			return true;
+		}
+		return false;
+	}
+
+	public final Type typeOperator(SyntaxTree node) {
+		DynamicSite site = this.siteMap.get(node.getTag().toString());
+		if (site instanceof UnarySite) {
+			return typeUnary(node, site);
+		}
+		return typeBinary(node, site);
 	}
 
 	FunctionBuilder function = null;
@@ -75,49 +144,12 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 		}
 	}
 
-	public Type visit(SyntaxTree node) {
-		Type c = node.getType();
-		if (c == null) {
-			c = find(node).acceptType(node);
-			if (c != null) {
-				node.setType(c);
-			}
-		}
-		return c;
-	}
-
-	private String name(Type t) {
+	protected final String name(Type t) {
 		return Lang.name(t);
 	}
 
 	public void typed(SyntaxTree node, Type c) {
 		node.setType(c);
-	}
-
-	/* TopLevel */
-	public class Source extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			Type t = null;
-			for (int i = 0; i < node.size(); i++) {
-				SyntaxTree sub = node.get(i);
-				try {
-					t = visit(sub);
-				} catch (TypeCheckerException e) {
-					sub = e.errorTree;
-					node.set(i, sub);
-					t = sub.getType();
-				}
-			}
-			return t;
-		}
-	}
-
-	public class Import extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return typeImport(node);
-		}
 	}
 
 	public Type typeImport(SyntaxTree node) {
@@ -152,13 +184,6 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 
 	/* FuncDecl */
 	private static Type[] EmptyTypes = new Type[0];
-
-	public class FuncDecl extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return typeFuncDecl(node);
-		}
-	}
 
 	public Type typeFuncDecl(SyntaxTree node) {
 		String name = node.getText(_name, null);
@@ -214,14 +239,7 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 		return void.class;
 	}
 
-	public class Return extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return typeReturn(node);
-		}
-	}
-
-	private void checkInFunction(SyntaxTree node) {
+	public void checkInFunction(SyntaxTree node) {
 		if (!inFunction()) {
 			throw error(node, Message.MustBeInFunction);
 		}
@@ -249,7 +267,7 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 		return void.class;
 	}
 
-	private SyntaxTree newDefault(SyntaxTree node, Type type) {
+	public SyntaxTree newDefault(SyntaxTree node, Type type) {
 		if (type == int.class) {
 			return node.newConst(int.class, 0);
 		}
@@ -266,48 +284,6 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 	}
 
 	/* Statement */
-
-	public class Empty extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return void.class;
-		}
-	}
-
-	public class Block extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			if (inFunction()) {
-				function.beginLocalVarScope();
-			}
-			typeStatementList(node);
-			if (inFunction()) {
-				function.endLocalVarScope();
-			}
-			return void.class;
-		}
-	}
-
-	public class BlockExpression extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			if (inFunction()) {
-				function.beginLocalVarScope();
-			}
-			typeStatementList(node);
-			if (inFunction()) {
-				function.endLocalVarScope();
-			}
-			return node.get(node.size() - 1).getType();
-		}
-	}
-
-	public class StatementList extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return typeStatementList(node);
-		}
-	}
 
 	public Type typeStatementList(SyntaxTree node) {
 		for (int i = 0; i < node.size(); i++) {
@@ -328,230 +304,6 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 			node.setTag(_Equals);
 		}
 		enforceType(boolean.class, node, condLabel);
-	}
-
-	public class Assert extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			checkCondition(node, _cond);
-			if (node.has(_msg)) {
-				enforceType(String.class, node, _msg);
-			} else {
-				String msg = node.get(_cond).formatSourceMessage("assert", "failed");
-				node.sub(_cond, node.get(_cond), _msg, node.newConst(String.class, msg));
-			}
-			return functor(node, KonohaFunctor.getAssertFunctor());
-		}
-	}
-
-	public class If extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			checkCondition(node, _cond);
-			visit(node.get(_then));
-			if (node.has(_else)) {
-				visit(node.get(_else));
-			}
-			return void.class;
-		}
-	}
-
-	public class Conditional extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			checkCondition(node, _cond);
-			Type then_t = visit(node.get(_then));
-			Type else_t = visit(node.get(_else));
-			if (then_t != else_t) {
-				enforceType(then_t, node, _else);
-			}
-			return then_t;
-		}
-	}
-
-	public class While extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			checkInFunction(node);
-			checkCondition(node, _cond);
-			visit(node.get(_body));
-			return void.class;
-		}
-	}
-
-	public class DoWhile extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			checkInFunction(node);
-			checkCondition(node, _cond);
-			visit(node.get(_body));
-			return void.class;
-		}
-	}
-
-	public class Continue extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			checkInFunction(node);
-			return void.class;
-		}
-	}
-
-	public class Break extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			checkInFunction(node);
-			return void.class;
-		}
-	}
-
-	public class For extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			checkInFunction(node);
-			function.beginLocalVarScope();
-			if (node.has(_init)) {
-				visit(node.get(_init));
-			}
-			if (node.has(_cond)) {
-				checkCondition(node, _cond);
-			}
-			if (node.has(_iter)) {
-				visit(node.get(_iter));
-			}
-			visit(node.get(_body));
-			function.endLocalVarScope();
-			return void.class;
-		}
-	}
-
-	// public class ForEach extends Undefined {
-	// @Override
-	// public Type accept(TypedTree node) {
-	// return typeForEach(node);
-	// }
-	// }
-	//
-	// public Type typeForEach(TypedTree node) {
-	// Type req_t = null;
-	// if (node.has(_type)) {
-	// req_t = this.typeSystem.resolveType(node.get(_type), null);
-	// }
-	// String name = node.getText(_name, "");
-	// req_t = typeIterator(req_t, node.get(_iter));
-	// if (inFunction()) {
-	// this.function.beginLocalVarScope();
-	// }
-	// this.function.setVarType(name, req_t);
-	// visit(node.get(_body));
-	// if (inFunction()) {
-	// this.function.endLocalVarScope();
-	// }
-	// return void.class;
-	// }
-
-	public class Switch extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			Type condType = visit(node.get(_cond));
-			typed(node.get(_cond), condType);
-			for (SyntaxTree sub : node.get(_body)) {
-				if (sub.has(_cond)) {
-					Type caseCondType = visit(sub.get(_cond));
-					typed(sub.get(_cond), caseCondType);
-				}
-				visit(sub.get(_body));
-				typed(sub, void.class);
-			}
-			return void.class;
-		}
-	}
-
-	public class Try extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			checkInFunction(node);
-			// try block
-			visit(node.get(_try));
-
-			// catch block
-			for (SyntaxTree sub : node.get(_catch)) {
-				function.beginLocalVarScope();
-				String name = sub.getText(_name, null);
-				Type paramType = resolveType(sub.get(_type, null), Exception.class);
-				function.setVarType(name, paramType);
-				typed(sub.get(_name), paramType);
-				Type type = visit(sub.get(_body));
-				typed(sub, type);
-				function.endLocalVarScope();
-			}
-			typed(node.get(_catch), void.class);
-
-			// finally block
-			if (node.has(_finally)) {
-				visit(node.get(_finally));
-				// typed(node.get(_finally), type);
-			}
-			return void.class;
-		}
-	}
-
-	// private Type typeIterator(Type req_t, TypedTree node) {
-	// Type iter_t = visit(node.get(_iter));
-	// Method m = typeSystem.resolveObjectMethod(req_t, this.bufferMatcher,
-	// "iterator", EmptyArgument, null, null);
-	// if (m != null) {
-	// TypedTree iter = node.newInstance(_MethodApply, 0, null);
-	// iter.make(_recv, node.get(_iter), _param, node.newInstance(_List, 0,
-	// null));
-	// iter_t = iter.setMethod(Hint.MethodApply, m, this.bufferMatcher);
-	// // TODO
-	// // if(req_t != null) {
-	// // }
-	// // node.set(index, node)
-	// }
-	// throw error(node.get(_iter), "unsupported iterator for %s",
-	// name(iter_t));
-	// }
-
-	public class VarDecl extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return typeVarDecl(node);
-		}
-	}
-
-	private Symbol _NewArray2 = Symbol.tag("NewArray2");
-
-	public class NewArray extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			// FIXME only supported for single dimensinal array
-			// #NewArray[$size: #Integer]
-			Type t = resolveType(node.get(_type), null);
-
-			ArrayList<SyntaxTree> sizeList = new ArrayList<>();
-			SyntaxTree base = node.get(_type);
-			while (base != null && base.has(_size)) {
-				sizeList.add(base.get(_size));
-				base = base.get(_base);
-			}
-
-			node.sub();
-			int i = 0;
-			for (SyntaxTree size : sizeList) {
-				node.add(_size, size);
-				enforceType(int.class, node, i);
-				i++;
-			}
-			if (i == 2) {
-				node.setTag(_NewArray2);
-			} else if (i > 2) {
-				throw error(node, "Unsupported " + i + " dimension array", node.getType());
-			}
-			// #NewArray[$size: #Integer]
-			return t;
-		}
 	}
 
 	public Type typeVarDecl(SyntaxTree node) {
@@ -608,17 +360,6 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 		}
 		defineVariable(node, type, name);
 		return void.class;
-	}
-
-	public class MultiVarDecl extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			Type type = resolveType(node.get(_type), null);
-			for (SyntaxTree sub : node.get(_list)) {
-				typeVarDecl(type, sub);
-			}
-			return void.class;
-		}
 	}
 
 	public void typeVarDecl(Type type, SyntaxTree node) {
@@ -679,30 +420,7 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 		typed(node, void.class);
 	}
 
-	/* StatementExpression */
-
-	public class Expression extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return visit(node.get(0));
-		}
-	}
-
-	/* Expression */
-
-	public class Name extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			Type t = tryCheckNameType(node, true);
-			if (t == null) {
-				String name = node.toText();
-				throw error(node, Message.UndefinedName_, name);
-			}
-			return t;
-		}
-	}
-
-	private Type tryCheckNameType(SyntaxTree node, boolean rewrite) {
+	public Type tryCheckNameType(SyntaxTree node, boolean rewrite) {
 		String name = node.toText();
 		if (this.inFunction()) {
 			if (this.function.containsVariable(name)) {
@@ -713,18 +431,11 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 			GlobalVariable gv = this.typeSystem.getGlobalVariable(name);
 			if (rewrite) {
 				node.sub();
-				return functor(node, gv.getGetter());
+				return setFunctor(node, gv.getGetter());
 			}
 			return gv.getType();
 		}
 		return null;
-	}
-
-	public class Assign extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return typeAssign(node);
-		}
 	}
 
 	public void checkAssignable(SyntaxTree node) {
@@ -785,20 +496,13 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 			Type t = gv.getType();
 			enforceType(t, node, _right);
 			node.sub(_right, node.get(_right));
-			functor(node, f);
+			setFunctor(node, f);
 			return t;
 		}
 		throw error(node.get(_left), Message.UndefinedName_, name);
 	}
 
 	/* Expression */
-
-	public class Cast extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return typeCast(node);
-		}
-	}
 
 	public Type typeCast(SyntaxTree node) {
 		Type inner = visit(node.get(_expr));
@@ -818,20 +522,13 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 		}
 		if (f != null) {
 			node.makeFlattenedList(node.get(_expr));
-			return functor(node, f);
+			return setFunctor(node, f);
 		}
 		if (exp.isAssignableFrom(req)) { // downcast
 			node.setTag(_DownCast);
 			return t;
 		}
 		throw error(node.get(_type), Message.UndefinedCast__, name(inner), name(t));
-	}
-
-	public class Apply extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return typeApply(node);
-		}
 	}
 
 	public Type typeApply(SyntaxTree node) {
@@ -865,7 +562,7 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 			Type t = gv.getType();
 			if (this.typeSystem.isFuncType(t)) {
 				node.sub();
-				return functor(node, gv.getGetter());
+				return setFunctor(node, gv.getGetter());
 			}
 		}
 		return null;
@@ -884,160 +581,11 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 			params.setTag(_Array);
 			params.setType(Object[].class);
 			node.sub(_name, node.get(_name), _param, params);
-			return functor(node, KonohaFunctor.getInvokeFunc());
+			return setFunctor(node, KonohaFunctor.getInvokeFunc());
 		}
 	}
 
-	private static final Type[] emptyTypes = new Type[0];
-
-	private Type typeUnary(Type ret, SyntaxTree node, String name) {
-		Type left = visit(node.get(_expr));
-		Type common = Lang.toPrimitiveType(left);
-		if (left != common) {
-			left = this.tryCastBeforeMatching(common, node, _expr);
-		}
-		Type[] a = { left };
-		Functor f = this.typeSystem.getMethod(methodMatcher, left, name, a);
-		if (f != null) {
-			return found(node, f, methodMatcher);
-		}
-		if (typeSystem.isDynamic(left)) {
-			if (ret == null) {
-				ret = left;
-			}
-			f = new Functor(Syntax.Operator, new DynamicMethodCallSite(typeSystem, name, ret, a));
-			return setDynamicFunctor(node, f, node.get(_left), node.get(_expr));
-		}
-		Functor[] fs = this.typeSystem.getMethods(left, name);
-		return unfound(node, fs, Message.Unary__, OperatorNames.name(name), name(left));
-	}
-
-	public Type typeBinary(Type ret, SyntaxTree node, String name) {
-		Type left = visit(node.get(_left));
-		Type right = visit(node.get(_right));
-		Type[] a = { left, right };
-		Functor f = this.typeSystem.getMethod(methodMatcher, left, name, a);
-		if (f != null) {
-			return found(node, f, methodMatcher);
-		}
-		if (typeSystem.isDynamic(left)) {
-			if (ret == null) {
-				ret = left;
-			}
-			f = new Functor(Syntax.Operator, new DynamicMethodCallSite(typeSystem, name, ret, a));
-			return setDynamicFunctor(node, f, node.get(_left), node.get(_right));
-		}
-		Functor[] fs = this.typeSystem.getMethods(left, name);
-		return unfound(node, fs, Message.Binary___, name(left), OperatorNames.name(name), name(right));
-	}
-
-	public void unifyBinaryAdd(SyntaxTree node) {
-		Type left = visit(node.get(_left));
-		Type right = visit(node.get(_right));
-		Type common = Lang.unifyAdd(Lang.toPrimitiveType(left), Lang.toPrimitiveType(right));
-		if (left != common) {
-			this.tryCastBeforeMatching(common, node, _left);
-		}
-		// if (right != common) {
-		// this.tryCastBeforeMatching(common, node, _right);
-		// }
-	}
-
-	public void unifyBinaryNum(SyntaxTree node) {
-		Type left = visit(node.get(_left));
-		Type right = visit(node.get(_right));
-		Type common = Lang.unifyNum(Lang.toPrimitiveType(left), Lang.toPrimitiveType(right));
-		if (left != common) {
-			this.tryCastBeforeMatching(common, node, _left);
-		}
-		// if (right != common) {
-		// this.tryCastBeforeMatching(common, node, _right);
-		// }
-	}
-
-	public class Add extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			unifyBinaryAdd(node);
-			return typeBinary(null, node, "add");
-		}
-	}
-
-	public class Sub extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			unifyBinaryNum(node);
-			return typeBinary(null, node, "subtract");
-		}
-	}
-
-	public class Mul extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			unifyBinaryNum(node);
-			return typeBinary(null, node, "multiply");
-		}
-	}
-
-	public class Div extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			unifyBinaryNum(node);
-			return typeBinary(null, node, "divide");
-		}
-	}
-
-	public class Mod extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			unifyBinaryNum(node);
-			return typeBinary(null, node, "mod");
-		}
-	}
-
-	public class Plus extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return visit(node.get(_expr));
-		}
-	}
-
-	public class Minus extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return typeUnary(null, node, "negate");
-		}
-	}
-
-	public class Equals extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			if (node.get(_right).is(_Null)) {
-				return typeNullCheck(_NullCheck, node, _left);
-			}
-			if (node.get(_left).is(_Null)) {
-				return typeNullCheck(_NullCheck, node, _right);
-			}
-			unifyBinaryNum(node);
-			return typeBinary(boolean.class, node, "eq");
-		}
-	}
-
-	public class NotEquals extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			if (node.get(_right).is(_Null)) {
-				return typeNullCheck(_NonNullCheck, node, _left);
-			}
-			if (node.get(_left).is(_Null)) {
-				return typeNullCheck(_NonNullCheck, node, _right);
-			}
-			unifyBinaryNum(node);
-			return typeBinary(boolean.class, node, "ne");
-		}
-	}
-
-	Type typeNullCheck(Symbol tag, SyntaxTree node, Symbol expr) {
+	public Type typeNullCheck(Symbol tag, SyntaxTree node, Symbol expr) {
 		visit(node.get(expr));
 		Class<?> c = node.get(expr).getClassType();
 		if (c.isPrimitive()) {
@@ -1047,173 +595,6 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 			node.sub(_expr, node.get(expr));
 		}
 		return boolean.class;
-	}
-
-	public class LessThan extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			unifyBinaryNum(node);
-			return typeBinary(boolean.class, node, "lt");
-		}
-	}
-
-	public class LessThanEquals extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return typeBinary(boolean.class, node, "lte");
-		}
-	}
-
-	public class GreaterThan extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return typeBinary(boolean.class, node, "gt");
-		}
-	}
-
-	public class GreaterThanEquals extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return typeBinary(boolean.class, node, "gte");
-		}
-	}
-
-	public class LeftShift extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return typeBinary(null, node, "shiftLeft");
-		}
-	}
-
-	public class RightShift extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return typeBinary(null, node, "shiftRight");
-		}
-	}
-
-	// public class LogicalRightShift extends Undefined {
-	// @Override
-	// public Type acceptType(TypedTree node) {
-	// return typeBinary(node, "opLogicalRightShift");
-	// }
-	// }
-
-	public class BitwiseAnd extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return typeBinary(null, node, "and");
-		}
-	}
-
-	public class BitwiseOr extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return typeBinary(null, node, "or");
-		}
-	}
-
-	public class BitwiseXor extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return typeBinary(null, node, "xor");
-		}
-	}
-
-	public class Compl extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return typeUnary(null, node, "not");
-		}
-	}
-
-	public class And extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			enforceType(boolean.class, node, _left);
-			enforceType(boolean.class, node, _right);
-			return boolean.class;
-		}
-	}
-
-	public class Or extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			enforceType(boolean.class, node, _left);
-			enforceType(boolean.class, node, _right);
-			return boolean.class;
-		}
-	}
-
-	public class Not extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			enforceType(boolean.class, node, _expr);
-			return typeUnary(boolean.class, node, "not");
-		}
-	}
-
-	public class TypeOf extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			try {
-				Type t = visit(node.get(_expr));
-				node.setConst(String.class, name(t));
-			} catch (TypeCheckerException e) {
-				context.log(e.getMessage());
-				node.setConst(String.class, null);
-			}
-			return String.class;
-		}
-	}
-
-	public class Instanceof extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			Class<?> c = Lang.toClassType(visit(node.get(_left)));
-			Class<?> t = resolveClass(node.get(_right), null);
-			if (!t.isAssignableFrom(c)) {
-				reportWarning(node, "incompatible instanceof operation: %s", name(t));
-				node.setConst(boolean.class, false);
-			}
-			node.setValue(t);
-			return boolean.class;
-		}
-	}
-
-	public class Null extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return Object.class;
-		}
-	}
-
-	public class True extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return node.setConst(boolean.class, true);
-		}
-	}
-
-	public class False extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return node.setConst(boolean.class, false);
-		}
-	}
-
-	public class _Integer extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return parseIntegerAs(node, int.class);
-		}
-	}
-
-	public class _Long extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return parseIntegerAs(node, long.class);
-		}
 	}
 
 	public Type parseIntegerAs(SyntaxTree node, Class<?> base) {
@@ -1247,75 +628,9 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 		return node.setConst(base, base == int.class ? 0 : 0L);
 	}
 
-	public class _Float extends _Double {
-	}
-
-	public class _Double extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			try {
-				String n = node.toText().replace("_", "");
-				if (n.endsWith("D") || n.endsWith("d") || n.endsWith("F") || n.endsWith("f")) {
-					n = n.substring(0, n.length() - 1);
-				}
-				return node.setConst(double.class, Double.parseDouble(n));
-			} catch (NumberFormatException e) {
-				reportWarning(node, Message.InvalidNumberFormat);
-			}
-			return node.setConst(double.class, 0.0);
-		}
-	}
-
-	public class Text extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return node.setConst(String.class, node.toText());
-		}
-	}
-
-	public class _String extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			String t = node.toText();
-			return node.setConst(String.class, StringUtils.unquoteString(t));
-		}
-	}
-
-	public class Character extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			String t = StringUtils.unquoteString(node.toText());
-			if (t.length() == 1) {
-				return node.setConst(char.class, t.charAt(0));
-			}
-			return node.setConst(String.class, t);
-		}
-	}
-
 	/* object oriented */
 
-	public class New extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			Type newType = resolveType(node.get(_type), null);
-			Type[] a = typeArguments(node.get(_param));
-			Functor f = typeSystem.getConstructor(methodMatcher, newType, a);
-			if (f != null) {
-				return found(node, f, methodMatcher, node.get(_param));
-			}
-			Functor[] unmatched = typeSystem.getConstructors(newType);
-			return unfound(node, unmatched, Message.Constructor_, name(newType));
-		}
-	}
-
-	public class _Field extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return typeField(node);
-		}
-	}
-
-	private Type typeField(SyntaxTree node) {
+	public Type typeField(SyntaxTree node) {
 		if (isStaticClassName(node)) {
 			return typeStaticField(node);
 		}
@@ -1330,14 +645,14 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 			return found(node, f, methodMatcher, node.get(_recv));
 		}
 		if (typeSystem.isDynamic(recvType)) {
-			// f = new Functor(Syntax.Getter, );
-			// return found(node, DynamicMember.newGetter(name), methodMatcher,
-			// node.get(_recv));
+			f = new Functor(Syntax.Getter, new GetterSite(typeSystem, name, Object.class, new Type[] { recvType }));
+			return setDynamicFunctor(node, f, node.get(_recv));
 		}
 		throw error(node.get(_name), Message.UndefinedField__, name(recvType), name);
+
 	}
 
-	private Type typeSetField(SyntaxTree node, SyntaxTree field) {
+	public Type typeSetField(SyntaxTree node, SyntaxTree field) {
 		if (isStaticClassName(field)) {
 			return typeSetStaticField(node, field);
 		}
@@ -1356,8 +671,9 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 			return found(node, f, methodMatcher, field.get(_recv), node.get(_right));
 		}
 		if (typeSystem.isDynamic(recvType)) {
-			// return found(node, DynamicMember.newSetter(name), methodMatcher,
-			// field.get(_recv), node.get(_right));
+			Type exprType = visit(node.get(_right));
+			f = new Functor(Syntax.Setter, new GetterSite(typeSystem, name, void.class, new Type[] { recvType, exprType }));
+			return setDynamicFunctor(node, f, field.get(_recv), node.get(_right));
 		}
 		throw error(field.get(_name), Message.UndefinedField__, name(recvType), name);
 	}
@@ -1403,29 +719,28 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 		throw error(field.get(_name), Message.UndefinedField__, name(recvClass), name);
 	}
 
-	public class MethodApply extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			if (isStaticClassName(node)) {
-				return typeStaticMethodApply(node);
-			}
-			Type recvType = visit(node.get(_recv));
-			String name = node.getText(_name, "");
-			Type[] a = typeArguments(recvType, node.get(_param));
-			Functor f = typeSystem.getMethod(methodMatcher, recvType, name, a);
-			if (f != null) {
-				if (isStaticClassMethod(f, a.length)) {
-					return found(node, f, methodMatcher, node.get(_param));
-				}
-				return found(node, f, methodMatcher, node.get(_recv), node.get(_param));
-			}
-			if (typeSystem.isDynamic(recvType)) {
-				f = new Functor(Syntax.Method, new DynamicMethodCallSite(typeSystem, name, Object.class, a));
-				return setDynamicFunctor(node, f, node.get(_recv));
-			}
-			Functor[] unmatched = typeSystem.getMethods(recvType, name);
-			return unfound(node, unmatched, Message.Method__, name(recvType), name);
+	/* MethodApply */
+
+	public Type typeMethodApply(SyntaxTree node) {
+		if (isStaticClassName(node)) {
+			return typeStaticMethodApply(node);
 		}
+		Type recvType = visit(node.get(_recv));
+		String name = node.getText(_name, "");
+		Type[] a = typeArguments(recvType, node.get(_param));
+		Functor f = typeSystem.getMethod(methodMatcher, recvType, name, a);
+		if (f != null) {
+			if (isStaticClassMethod(f, a.length)) {
+				return found(node, f, methodMatcher, node.get(_param));
+			}
+			return found(node, f, methodMatcher, node.get(_recv), node.get(_param));
+		}
+		if (typeSystem.isDynamic(recvType)) {
+			f = new Functor(Syntax.Method, new MethodSite(typeSystem, name, Object.class, a));
+			return setDynamicFunctor(node, f, node.get(_recv));
+		}
+		Functor[] unmatched = typeSystem.getMethods(recvType, name);
+		return unfound(node, unmatched, Message.Method__, name(recvType), name);
 	}
 
 	private boolean isStaticMethod(Functor f) {
@@ -1473,25 +788,24 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 		return unfound(node, unmatched, Message.Method__, name(staticClass), name);
 	}
 
-	public class Indexer extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree indexer) {
-			Type recvType = visit(indexer.get(_recv));
-			Type[] a = typeArguments(recvType, indexer.get(_param));
-			Functor f = typeSystem.getMethod(methodMatcher, recvType, "get", a);
-			if (f != null) {
-				return found(indexer, f, methodMatcher, indexer.get(_recv), indexer.get(_param));
-			}
-			if (typeSystem.isDynamic(recvType)) {
-				// return found(indexer, DynamicMember.newIndexGetter("get"),
-				// methodMatcher, indexer.get(_recv), indexer.get(_param));
-			}
-			Functor[] unmatched = typeSystem.getMethods(recvType, "get");
-			return unfound(indexer, unmatched, Message.Indexer_, name(recvType));
+	/* Indexer */
+
+	public Type typeIndexer(SyntaxTree node) {
+		Type recvType = visit(node.get(_recv));
+		Type[] a = typeArguments(recvType, node.get(_param));
+		Functor f = typeSystem.getMethod(methodMatcher, recvType, "get", a);
+		if (f != null) {
+			return found(node, f, methodMatcher, node.get(_recv), node.get(_param));
 		}
+		if (typeSystem.isDynamic(recvType)) {
+			f = new Functor(Syntax.Indexer, new MethodSite(typeSystem, "get", Object.class, a));
+			return setDynamicFunctor(node, f, node.get(_recv), node.get(_param));
+		}
+		Functor[] unmatched = typeSystem.getMethods(recvType, "get");
+		return unfound(node, unmatched, Message.Indexer_, name(recvType));
 	}
 
-	private Type typeSetIndexer(SyntaxTree node, SyntaxTree indexer, SyntaxTree expr) {
+	public Type typeSetIndexer(SyntaxTree node, SyntaxTree indexer, SyntaxTree expr) {
 		Type recvType = visit(indexer.get(_recv));
 		Type exprType = visit(expr);
 		Type[] a = typeArguments(recvType, indexer.get(_param), exprType);
@@ -1500,9 +814,8 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 			return found(node, f, methodMatcher, indexer.get(_recv), indexer.get(_param), expr);
 		}
 		if (typeSystem.isDynamic(recvType)) {
-			// return found(indexer, DynamicMember.newIndexSetter("set"),
-			// methodMatcher, indexer.get(_recv), indexer.get(_param),
-			// node.get(_right));
+			f = new Functor(Syntax.SetIndexer, new MethodSite(typeSystem, "set", void.class, a));
+			return setDynamicFunctor(node, f, indexer.get(_recv), indexer.get(_param), expr);
 		}
 		Functor[] unmatched = typeSystem.getMethods(recvType, "set");
 		return unfound(indexer, unmatched, Message.Indexer_, name(recvType));
@@ -1510,7 +823,7 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 
 	/* array */
 
-	private Type typeCollectionElement(SyntaxTree node, int step) {
+	public Type typeArrayElements(SyntaxTree node, int step) {
 		if (node.size() == 0) {
 			return Object.class;
 		}
@@ -1541,203 +854,16 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 		return elementType;
 	}
 
-	public class Array extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			Type elementType = typeCollectionElement(node, 1);
-			Type arrayType = typeSystem.newArrayType(elementType);
-			return arrayType;
-		}
-	}
-
-	public class Set extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			Type elementType = typeCollectionElement(node, 1);
-			Type arrayType = typeSystem.newArrayType(elementType);
-			node.setTag(_Array);
-			return arrayType;
-		}
-	}
-
-	public class Dict extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			Type elementType = typeCollectionElement(node, 1);
-			Type arrayType = typeSystem.newArrayType(elementType);
-			return arrayType;
-		}
-	}
-
-	public class Interpolation extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			for (int i = 0; i < node.size(); i++) {
-				SyntaxTree sub = node.get(i);
-				visit(sub);
-				if (sub.getType() != Object.class) {
-					enforceType(Object.class, node, i);
-				}
-			}
-			SyntaxTree t = node.dup();
-			t.setTag(_Array);
-			t.setType(Object[].class);
-			node.sub(_expr, t);
-			return functor(node, KonohaFunctor.getInterpolationFunctor());
-		}
-	}
-
-	// Syntax Sugar
-
-	private Type typeSelfAssignment(SyntaxTree node, Symbol optag) {
-		SyntaxTree op = node.newInstance(optag, 0, null);
-		op.sub(_left, node.get(_left).dup(), _right, node.get(_right));
-		node.set(_right, op);
-		node.setTag(_Assign);
-		return typeAssign(node);
-	}
-
-	public class AssignAdd extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			return typeSelfAssignment(node, _Add);
-		}
-	}
-
-	// public class AssignSub extends Undefined {
-	// @Override
-	// public Type acceptType(SyntaxTree node) {
-	// return typeSelfAssignment(node, _Sub);
-	// }
-	// }
-	//
-	// public class AssignMul extends Undefined {
-	// @Override
-	// public Type acceptType(SyntaxTree node) {
-	// return typeSelfAssignment(node, _Mul);
-	// }
-	// }
-	//
-	// public class AssignDiv extends Undefined {
-	// @Override
-	// public Type acceptType(SyntaxTree node) {
-	// return typeSelfAssignment(node, _Div);
-	// }
-	// }
-	//
-	// public class AssignMod extends Undefined {
-	// @Override
-	// public Type acceptType(SyntaxTree node) {
-	// return typeSelfAssignment(node, _Mod);
-	// }
-	// }
-	//
-	// public class AssignLeftShift extends Undefined {
-	// @Override
-	// public Type acceptType(SyntaxTree node) {
-	// return typeSelfAssignment(node, _LeftShift);
-	// }
-	// }
-	//
-	// public class AssignRightShift extends Undefined {
-	// @Override
-	// public Type acceptType(SyntaxTree node) {
-	// return typeSelfAssignment(node, _RightShift);
-	// }
-	// }
-	//
-	// public class AssignLogicalRightShift extends Undefined {
-	// @Override
-	// public Type acceptType(SyntaxTree node) {
-	// return typeSelfAssignment(node, _LogicalRightShift);
-	// }
-	// }
-	//
-	// public class AssignBitwiseAnd extends Undefined {
-	// @Override
-	// public Type acceptType(SyntaxTree node) {
-	// return typeSelfAssignment(node, _BitwiseAnd);
-	// }
-	// }
-	//
-	// public class AssignBitwiseXOr extends Undefined {
-	// @Override
-	// public Type acceptType(SyntaxTree node) {
-	// return typeSelfAssignment(node, _BitwiseXor);
-	// }
-	// }
-	//
-	// public class AssignBitwiseOr extends Undefined {
-	// @Override
-	// public Type acceptType(SyntaxTree node) {
-	// return typeSelfAssignment(node, _BitwiseOr);
-	// }
-	// }
-
-	private SyntaxTree desugarInc(SyntaxTree expr, Symbol optag) {
-		SyntaxTree op = expr.newInstance(optag, 0, null);
-		op.sub(_left, expr.dup(), _right, expr.newConst(int.class, 1));
-		return op;
-	}
-
-	private SyntaxTree desugarAssign(SyntaxTree node, SyntaxTree expr, Symbol optag) {
-		SyntaxTree op = expr.newInstance(optag, 0, null);
-		op.sub(_left, expr.dup(), _right, expr.newConst(int.class, 1));
-		node.sub(_left, expr, _right, desugarInc(expr, _Add));
-		node.setTag(_Assign);
-		return node;
-	}
-
-	public class PreInc extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			SyntaxTree expr = node.get(_expr);
-			return visit(desugarAssign(node, expr, _Add));
-		}
-	}
-
-	public class PreDec extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			SyntaxTree expr = node.get(_expr);
-			return visit(desugarAssign(node, expr, _Sub));
-		}
-	}
-
-	public class Inc extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			SyntaxTree expr = node.get(_recv);
-			SyntaxTree assign = desugarAssign(node.newInstance(_Assign, 2, null), expr.dup(), _Add);
-			node.sub(_expr, expr, _body, assign);
-			Type t = visit(expr);
-			visit(assign);
-			return t;
-		}
-	}
-
-	public class Dec extends Undefined {
-		@Override
-		public Type acceptType(SyntaxTree node) {
-			SyntaxTree expr = node.get(_recv);
-			SyntaxTree assign = desugarAssign(node.newInstance(_Assign, 2, null), expr.dup(), _Sub);
-			node.sub(_expr, expr, _body, assign);
-			Type t = visit(expr);
-			visit(assign);
-			return t;
-		}
-	}
-
 	// new interface
 
-	private TypeMatcher methodMatcher = new TypeMatcher();
-	private TypeMatcher castMatcher = new TypeMatcher();
+	protected TypeMatcher methodMatcher = new TypeMatcher();
+	protected TypeMatcher castMatcher = new TypeMatcher();
 
 	/* type */
 
-	private Type[] typeArguments(SyntaxTree params) {
+	public final Type[] typeArguments(SyntaxTree params) {
 		if (params.size() == 0) {
-			return emptyTypes;
+			return Lang.EmptyTypes;
 		}
 		Type[] types = new Type[params.size()];
 		for (int i = 0; i < params.size(); i++) {
@@ -1746,7 +872,7 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 		return types;
 	}
 
-	private Type[] typeArguments(Type recvType, SyntaxTree params) {
+	public final Type[] typeArguments(Type recvType, SyntaxTree params) {
 		Type[] types = new Type[params.size() + 1];
 		types[0] = recvType;
 		for (int i = 0; i < params.size(); i++) {
@@ -1755,7 +881,7 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 		return types;
 	}
 
-	private Type[] typeArguments(Type recvType, SyntaxTree params, Type exprType) {
+	public final Type[] typeArguments(Type recvType, SyntaxTree params, Type exprType) {
 		Type[] types = new Type[params.size() + 2];
 		types[0] = recvType;
 		for (int i = 0; i < params.size(); i++) {
@@ -1765,12 +891,12 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 		return types;
 	}
 
-	private Type found(SyntaxTree node, Functor f, TypeMatcher matcher, SyntaxTree... trees) {
+	public final Type found(SyntaxTree node, Functor f, TypeMatcher matcher, SyntaxTree... trees) {
 		node.makeFlattenedList(trees);
 		return found(node, f, matcher);
 	}
 
-	private Type found(SyntaxTree node, Functor f, TypeMatcher matcher) {
+	public final Type found(SyntaxTree node, Functor f, TypeMatcher matcher) {
 		Type returnType = matcher.resolve(f.getReturnType(), Object.class);
 		for (int i = 0; i < f.size(); i++) {
 			enforceType(matcher, f.get(i), node, i);
@@ -1790,14 +916,14 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 		return Object.class;
 	}
 
-	private Type functor(SyntaxTree node, Functor f) {
+	public final Type setFunctor(SyntaxTree node, Functor f) {
 		node.setTag(_Functor);
 		node.setFunctor(f);
 		node.setType(f.getReturnType());
 		return f.getReturnType();
 	}
 
-	private Type unfound(SyntaxTree node, Functor[] unmatched, Message fmt, Object... args) {
+	public final Type unfound(SyntaxTree node, Functor[] unmatched, Message fmt, Object... args) {
 		String methods = unfoundMessage(unmatched);
 		String msg = String.format(fmt.toString(), args);
 		if (methods == null) {
@@ -1808,7 +934,7 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 		throw error(node, msg);
 	}
 
-	private final String unfoundMessage(Functor[] unmatched) {
+	public final String unfoundMessage(Functor[] unmatched) {
 		String mismatched = null;
 		if (unmatched != null && unmatched.length > 0) {
 			StringBuilder sb = new StringBuilder();
@@ -1896,27 +1022,27 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 
 	// matching library
 
-	private void enforceType(TypeMatcher matcher, Type req, SyntaxTree node, int index) {
+	public void enforceType(TypeMatcher matcher, Type req, SyntaxTree node, int index) {
 		SyntaxTree unode = node.get(index);
 		visit(unode);
 		node.set(index, this.enforceType(matcher, req, unode));
 	}
 
-	private void enforceType(TypeMatcher matcher, Type req, SyntaxTree node, Symbol label) {
+	public void enforceType(TypeMatcher matcher, Type req, SyntaxTree node, Symbol label) {
 		SyntaxTree unode = node.get(label);
 		visit(unode);
 		node.set(label, this.enforceType(matcher, req, unode));
 	}
 
-	private void enforceType(Type req, SyntaxTree node, int index) {
+	public void enforceType(Type req, SyntaxTree node, int index) {
 		enforceType(null, req, node, index);
 	}
 
-	private void enforceType(Type req, SyntaxTree node, Symbol label) {
+	public void enforceType(Type req, SyntaxTree node, Symbol label) {
 		enforceType(null, req, node, label);
 	}
 
-	private final SyntaxTree enforceType(TypeMatcher matcher, Type reqt, SyntaxTree node) {
+	public final SyntaxTree enforceType(TypeMatcher matcher, Type reqt, SyntaxTree node) {
 		if (FunctorLookup.accept(matcher, reqt, node.getType())) {
 			return node;
 		}
@@ -1948,7 +1074,7 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 		if (f != null) {
 			SyntaxTree newnode = node.newInstance(_Functor, 1, f);
 			newnode.set(0, _expr, node);
-			functor(newnode, f);
+			setFunctor(newnode, f);
 			return newnode;
 		}
 		if (expt == Object.class) { // auto downcast
@@ -1960,17 +1086,17 @@ public class TypeChecker extends TreeVisitor2<TreeChecker> implements CommonSymb
 		return null;
 	}
 
-	private TypeCheckerException error(SyntaxTree node, Message fmt, Object... args) {
+	public TypeCheckerException error(SyntaxTree node, Message fmt, Object... args) {
 		return new TypeCheckerException(node, fmt.toString(), args);
 	}
 
-	private TypeCheckerException error(SyntaxTree node, String fmt, Object... args) {
+	public TypeCheckerException error(SyntaxTree node, String fmt, Object... args) {
 		return new TypeCheckerException(node, fmt, args);
 	}
 
 	public boolean verboseTypeInference = true;
 
-	private void reportInferredType(SyntaxTree node, Message fmt, Object... args) {
+	public void reportInferredType(SyntaxTree node, Message fmt, Object... args) {
 		if (verboseTypeInference) {
 			this.reportWarning(node, fmt, args);
 		}

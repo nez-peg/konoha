@@ -10,7 +10,7 @@ import java.lang.reflect.Type;
 
 import konoha.Function;
 import konoha.asm.Prototype;
-import konoha.dynamic.DynamicCallSite;
+import konoha.dynamic.DynamicSite;
 import nez.util.ConsoleUtils;
 
 public class Functor {
@@ -46,7 +46,7 @@ public class Functor {
 		this.paramTypes = proto.getParameterTypes();
 	}
 
-	public Functor(Syntax syntax, DynamicCallSite callsite) {
+	public Functor(Syntax syntax, DynamicSite callsite) {
 		this.syntax = syntax;
 		this.ref = callsite;
 	}
@@ -84,8 +84,8 @@ public class Functor {
 		if (ref instanceof Constructor<?>) {
 			return "<init>";
 		}
-		if (ref instanceof DynamicCallSite) {
-			return ((DynamicCallSite) ref).getTargetName();
+		if (ref instanceof DynamicSite) {
+			return ((DynamicSite) ref).getTargetName();
 		}
 		return null;
 	}
@@ -106,8 +106,8 @@ public class Functor {
 		if (ref instanceof Type) {
 			return TypeSystem.getFuncReturnType((Type) ref);
 		}
-		if (ref instanceof DynamicCallSite) {
-			return ((DynamicCallSite) ref).type().returnType();
+		if (ref instanceof DynamicSite) {
+			return ((DynamicSite) ref).type().returnType();
 		}
 		return Object.class;
 	}
@@ -141,8 +141,8 @@ public class Functor {
 				paramTypes = TypeSystem.getFuncParameterTypes((Type) ref);
 			}
 		}
-		if (ref instanceof DynamicCallSite) {
-			return ((DynamicCallSite) ref).type().parameterCount();
+		if (ref instanceof DynamicSite) {
+			return ((DynamicSite) ref).type().parameterCount();
 		}
 		if (paramTypes != null) {
 			return paramTypes.length;
@@ -187,8 +187,8 @@ public class Functor {
 			}
 			return paramTypes[index];
 		}
-		if (ref instanceof DynamicCallSite) {
-			return ((DynamicCallSite) ref).type().parameterType(index);
+		if (ref instanceof DynamicSite) {
+			return ((DynamicSite) ref).type().parameterType(index);
 		}
 		return Object.class;
 	}
@@ -205,20 +205,15 @@ public class Functor {
 		return false;
 	}
 
-	public final static MethodHandle toMethodHandler(Method f) {
-		try {
-			return lookup.unreflect(f);
-		} catch (IllegalAccessException e) {
-			Debug.traceException(e);
-		}
-		return null;
-	}
-
 	public MethodHandle toMethodHandler(Lookup lookup) throws Throwable {
 		if (ref instanceof Method) {
 			return lookup.unreflect((Method) ref);
 		} else if (ref instanceof Field) {
-			return lookup.unreflectGetter((Field) ref);
+			if (syntax == Syntax.Getter) {
+				return lookup.unreflectGetter((Field) ref);
+			} else {
+				return lookup.unreflectSetter((Field) ref);
+			}
 		} else if (ref instanceof Constructor<?>) {
 			return lookup.unreflectConstructor((Constructor<?>) ref);
 		}
@@ -227,7 +222,9 @@ public class Functor {
 
 	private Object evalImpl(Object... args) throws Throwable {
 		MethodHandle mh = null;
-		if (ref instanceof Method) {
+		if (ref instanceof DynamicSite) {
+			return ((DynamicSite) ref).eval(args);
+		} else if (ref instanceof Method) {
 			mh = lookup.unreflect((Method) ref);
 			return mh.invokeWithArguments(args);
 		} else if (ref instanceof Field) {

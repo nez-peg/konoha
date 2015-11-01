@@ -7,7 +7,7 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-import konoha.dynamic.DynamicCallSite;
+import konoha.dynamic.DynamicSite;
 import konoha.main.ConsoleUtils;
 import konoha.script.CommonSymbols;
 import konoha.script.Debug;
@@ -121,8 +121,8 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 			this.mBuilder.invokeConstructor(Type.getType(c.getDeclaringClass()), Method.getMethod(c));
 		} else if (f.ref instanceof Prototype) {
 			((Prototype) f.ref).push(this.mBuilder);
-		} else if (f.ref instanceof DynamicCallSite) {
-			DynamicCallSite site = (DynamicCallSite) f.ref;
+		} else if (f.ref instanceof DynamicSite) {
+			DynamicSite site = (DynamicSite) f.ref;
 			String desc = site.type().toMethodDescriptorString();
 			Type[] paramTypes = { Type.getType(MethodHandles.Lookup.class), Type.getType(String.class), Type.getType(MethodType.class) };
 			Method methodDesc = new Method("bootstrap", Type.getType(CallSite.class), paramTypes);
@@ -1106,6 +1106,14 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 			mBuilder.visitJumpInsn(Opcodes.GOTO, mergeLabel);
 
 			mBuilder.visitLabel(mergeLabel);
+		}
+	}
+
+	public class Not extends Undefined {
+		@Override
+		public void acceptAsm(SyntaxTree node) {
+			visit(node.get(_expr));
+			mBuilder.not();
 		}
 	}
 

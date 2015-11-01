@@ -4,13 +4,6 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.util.HashMap;
 
-import konoha.Function;
-import konoha.api.BooleanOp;
-import konoha.api.DoubleOp;
-import konoha.api.IntOp;
-import konoha.api.LongOp;
-import konoha.api.ObjectOp;
-import konoha.api.StringOp;
 import konoha.asm.ScriptCompiler;
 import konoha.hack.Hacker;
 import nez.util.UList;
@@ -21,33 +14,6 @@ public class TypeSystem extends FunctorLookup implements CommonSymbols {
 
 	public TypeSystem(ScriptContext context) {
 		this.context = context;
-	}
-
-	void init() {
-		loadStaticFunctionClass(ObjectOp.class, false);
-		loadStaticFunctionClass(BooleanOp.class, false);
-		loadStaticFunctionClass(IntOp.class, false);
-		loadStaticFunctionClass(LongOp.class, false);
-		loadStaticFunctionClass(DoubleOp.class, false);
-		loadStaticFunctionClass(StringOp.class, false);
-		loadStaticFunctionClass(konoha.libc.class, false);
-		this.setType("void", void.class);
-		this.setType("boolean", boolean.class);
-		this.setType("byte", byte.class);
-		this.setType("char", char.class);
-		this.setType("short", int.class);
-		this.setType("int", int.class);
-		this.setType("long", long.class);
-		this.setType("float", double.class);
-		this.setType("double", double.class);
-		this.setType("String", String.class);
-		this.setType("Array", konoha.Array.class);
-		this.setType("Dict", konoha.Dict.class);
-		this.setType("Func", Function.class);
-		this.setType("RuntimeException", RuntimeException.class);
-		this.setType("NullPointerException", NullPointerException.class);
-		this.setType("ArithmeticException", ArithmeticException.class);
-		this.loadSyntaxClass(konoha.syntax.SelfAssign.class);
 	}
 
 	public void init(ScriptCompiler compl) {

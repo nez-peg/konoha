@@ -11,6 +11,10 @@ public class Debug {
 		ConsoleUtils.println("TODO: " + String.format(fmt, args));
 	}
 
+	public static void FIXME(String fmt, Object... args) {
+		ConsoleUtils.println("FIXME: " + String.format(fmt, args));
+	}
+
 	public static void DEBUG(String fmt, Object... args) {
 		ConsoleUtils.println("DEBUG: " + String.format(fmt, args));
 	}
