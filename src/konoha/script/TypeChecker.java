@@ -64,6 +64,7 @@ public abstract class TypeChecker extends VisitorMap<TreeChecker> implements Com
 		if (f != null) {
 			if (site instanceof ComparatorSite && f.get(0) == Object.class) {
 				/* Object comparators need to recheck at runtime */
+				a[0] = Object.class;
 				f = null;
 			}
 			if (f != null) {
@@ -75,7 +76,7 @@ public abstract class TypeChecker extends VisitorMap<TreeChecker> implements Com
 			return setDynamicFunctor(node, f, node.get(_left), node.get(_right));
 		}
 		Functor[] fs = this.typeSystem.getMethods(a[0], site.getTargetName());
-		return unfound(node, fs, Message.Binary___, name(a[0]), OperatorNames.name(site.getTargetName()), name(a[0]));
+		return unfound(node, fs, Message.Binary___, name(node.get(_left).getType()), OperatorNames.name(site.getTargetName()), name(node.get(_right).getType()));
 	}
 
 	public final Type typeUnary(SyntaxTree node, DynamicSite site) {
