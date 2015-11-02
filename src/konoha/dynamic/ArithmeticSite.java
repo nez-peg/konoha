@@ -38,8 +38,6 @@ public class ArithmeticSite extends OperatorSite {
 		Type t2 = Lang.toUnbox(a[1]);
 		if (t1 == t2) {
 			unify(a, t1);
-		} else if ((t1 == String.class || t2 == String.class) && this.targetName.equals("add")) {
-			unify(a, String.class);
 		} else if (t1 == Object.class || t2 == Object.class) {
 			unify(a, Object.class);
 		} else if (t1 instanceof Class<?> && t2 instanceof Class<?>) {
