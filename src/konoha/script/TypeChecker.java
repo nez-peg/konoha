@@ -433,7 +433,7 @@ public abstract class TypeChecker extends VisitorMap<TreeChecker> implements Com
 			GlobalVariable gv = this.typeSystem.getGlobalVariable(name);
 			if (rewrite) {
 				node.sub();
-				return setFunctor(node, gv.getGetter());
+				setFunctor(node, gv.getGetter());
 			}
 			return gv.getType();
 		}
@@ -1048,26 +1048,12 @@ public abstract class TypeChecker extends VisitorMap<TreeChecker> implements Com
 		if (FunctorLookup.accept(matcher, reqt, node.getType())) {
 			return node;
 		}
-		Type resolved = matcher != null ? matcher.resolve(reqt, null) : reqt;
-		SyntaxTree converted = tryCoersion(resolved, node);
+		Type reqt_resolved = matcher != null ? matcher.resolve(reqt, null) : reqt;
+		SyntaxTree converted = tryCoersion(reqt_resolved, node);
 		if (converted == null) {
 			throw error(node, Message.TypeError__, name(reqt), name(node.getType()));
 		}
 		return converted;
-	}
-
-	private Type tryCastBeforeMatching(Type req, SyntaxTree node, Symbol label) {
-		SyntaxTree child = node.get(label);
-		Functor f = typeSystem.getCast(child.getType(), req);
-		if (f != null) {
-			SyntaxTree newnode = node.newInstance(_Functor, 1, f);
-			newnode.set(0, _expr, child);
-			newnode.setFunctor(f);
-			newnode.setType(req);
-			node.set(label, newnode);
-			return req;
-		}
-		return node.getType();
 	}
 
 	private final SyntaxTree tryCoersion(Type reqt, SyntaxTree node) {
@@ -1079,7 +1065,7 @@ public abstract class TypeChecker extends VisitorMap<TreeChecker> implements Com
 			setFunctor(newnode, f);
 			return newnode;
 		}
-		if (expt == Object.class) { // auto downcast
+		if (expt == Object.class) { // Auto Downcast
 			SyntaxTree newnode = node.newInstance(_Cast, 1, null);
 			newnode.set(0, _expr, node);
 			newnode.setType(reqt);

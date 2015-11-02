@@ -127,6 +127,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 			}
 			DynamicSite site = (DynamicSite) f.ref;
 			String desc = site.type().toMethodDescriptorString();
+			// System.out.println("InvokeDynamic: " + desc);
 			Type[] paramTypes = { Type.getType(MethodHandles.Lookup.class), Type.getType(String.class), Type.getType(MethodType.class) };
 			Method methodDesc = new Method("bootstrap", Type.getType(CallSite.class), paramTypes);
 			Handle handle = new Handle(Opcodes.H_INVOKESTATIC, Type.getType(site.getClass()).getInternalName(), "bootstrap", methodDesc.getDescriptor());

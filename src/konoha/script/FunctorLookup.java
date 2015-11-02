@@ -487,13 +487,13 @@ public class FunctorLookup {
 		if (p == a) {
 			return true;
 		}
-		if (p instanceof Class<?> || matcher == null) {
+		if (p instanceof Class<?>) {
 			if (((Class<?>) p).isAssignableFrom(Lang.toClassType(a))) {
 				return true;
 			}
 			return false;
 		}
-		return matcher.match(p, a);
+		return matcher == null ? Lang.toClassType(p).isAssignableFrom(Lang.toClassType(a)) : matcher.match(p, a);
 	}
 
 	public final boolean match(TypeMatcher matcher, Functor f, Type[] a) {

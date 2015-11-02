@@ -160,13 +160,6 @@ public class TypeSystem extends FunctorLookup implements CommonSymbols {
 		return gv;
 	}
 
-	// private GlobalVariable addDebugGlobalVariable(Type type, String name,
-	// Class<?> varClass) {
-	// GlobalVariable gv = new GlobalVariable(type, varClass);
-	// this.GlobalVariables.put(name, gv);
-	// return gv;
-	// }
-
 	public void loadStaticFunctionClass(Class<?> c, boolean isGenerated) {
 		this.addSymbol(c);
 	}
