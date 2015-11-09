@@ -6,7 +6,9 @@ import java.lang.invoke.MethodType;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Stack;
 
+import konoha.Function;
 import konoha.dynamic.DynamicSite;
 import konoha.main.ConsoleUtils;
 import konoha.script.CommonSymbols;
@@ -32,11 +34,16 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 	private ClassBuilder cBuilder;
 	private MethodBuilder mBuilder;
 	private String classPath = "konoha/runtime/";
+	private Stack<ClassBuilder> cBuilders;
+	private Stack<MethodBuilder> mBuilders;
+	private int lambdaIdentifier = 0;
 
 	public ScriptCompilerAsm(TypeSystem typeSystem, ScriptClassLoader cLoader) {
 		// super(TypedTree.class);
 		// this.typeSystem = typeSystem;
 		this.cLoader = cLoader;
+		mBuilders = new Stack<>();
+		cBuilders = new Stack<>();
 		init(new Undefined());
 	}
 
@@ -210,21 +217,34 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 	/* class */
 
 	public void openClass(String name) {
+		if (this.cBuilder != null) {
+			cBuilders.push(this.cBuilder);
+		}
 		this.cBuilder = new ClassBuilder(name, null, null, null);
 	}
 
 	public void openClass(String name, Class<?> superClass, Class<?>... interfaces) {
+		if (this.cBuilder != null) {
+			cBuilders.push(this.cBuilder);
+		}
 		this.cBuilder = new ClassBuilder(name, null, superClass, interfaces);
 	}
 
 	public void openClass(int acc, String name, Class<?> superClass, Class<?>... interfaces) {
+		if (this.cBuilder != null) {
+			cBuilders.push(this.cBuilder);
+		}
 		this.cBuilder = new ClassBuilder(acc, name, null, superClass, interfaces);
 	}
 
 	public Class<?> closeClass() {
 		this.cBuilder.buildConstPool();
 		Class<?> c = cLoader.definedAndLoadClass(this.cBuilder.getQualifiedClassName(), cBuilder.toByteArray());
-		this.cBuilder = null;
+		if (cBuilders.isEmpty()) {
+			this.cBuilder = null;
+		} else {
+			this.cBuilder = cBuilders.pop();
+		}
 		return c;
 	}
 
@@ -323,6 +343,49 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 			}
 			mBuilder.returnValue();
 			mBuilder.endMethod();
+		}
+	}
+
+	public class Lambda extends Undefined {
+		@Override
+		public void acceptAsm(SyntaxTree node) {
+			openClass("Lambda$" + lambdaIdentifier, Function.class);
+			SyntaxTree args = node.get(_param);
+			String name = "f";
+			lambdaIdentifier++;
+			Class<?> returnType = args.getClassType();
+			Class<?>[] paramTypes = new Class<?>[args.size()];
+			for (int i = 0; i < paramTypes.length; i++) {
+				paramTypes[i] = args.get(i).getClassType();
+			}
+			mBuilders.push(mBuilder);
+			mBuilder = cBuilder.newMethodBuilder(Opcodes.ACC_PUBLIC, returnType, name, paramTypes);
+			mBuilder.enterScope();
+			for (SyntaxTree arg : args) {
+				mBuilder.defineArgument(arg.getText(_name, null), arg.getClassType());
+			}
+			visit(node.get(_body));
+			mBuilder.exitScope();
+			if (returnType != void.class) {
+				visitDefaultValue(args);
+			}
+			mBuilder.returnValue();
+			mBuilder.endMethod();
+
+			/* Constructor */
+			mBuilder = cBuilder.newConstructorBuilder(Opcodes.ACC_PUBLIC, new Class<?>[0]);
+			mBuilder.loadThis();
+			mBuilder.invokeConstructor(Type.getType(Function.class), Method.getMethod("void <init> ()"));
+			mBuilder.returnValue();
+			mBuilder.endMethod();
+
+			mBuilder = mBuilders.pop();
+			Class<?> lambdaClass = closeClass();
+
+			/* Lambda Expression */
+			mBuilder.newInstance(Type.getType(lambdaClass));
+			mBuilder.dup();
+			mBuilder.invokeConstructor(Type.getType(lambdaClass), Method.getMethod("void <init> ()"));
 		}
 	}
 

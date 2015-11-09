@@ -150,6 +150,13 @@ public class KonohaChecker extends TypeChecker implements CommonSymbols {
 		}
 	}
 
+	public class Lambda extends Undefined {
+		@Override
+		public Type acceptType(SyntaxTree node) {
+			return typeLambda(node);
+		}
+	}
+
 	/* Statement */
 	public class Block extends Undefined {
 		@Override

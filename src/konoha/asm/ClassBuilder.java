@@ -119,6 +119,18 @@ public class ClassBuilder extends ClassWriter implements Opcodes {
 		return new MethodBuilder(accessFlag, method, this);
 	}
 
+	/* for Lambda */
+
+	public MethodBuilder newMethodBuilder(int accessFlag, Class<?> returnClass, String methodName, VarScopes varScopes, Class<?>... paramClasses) {
+		final int size = paramClasses.length;
+		Type[] paramTypeDescs = new Type[paramClasses.length];
+		for (int i = 0; i < size; i++) {
+			paramTypeDescs[i] = Type.getType(paramClasses[i]);
+		}
+		Method method = new Method(methodName, Type.getType(returnClass), paramTypeDescs);
+		return new MethodBuilder(accessFlag, method, this, varScopes);
+	}
+
 	public MethodBuilder newConstructorBuilder(int accessFlag, Class<?>... paramClasses) {
 		Method method = Methods.constructor(paramClasses);
 		return new MethodBuilder(accessFlag, method, this);

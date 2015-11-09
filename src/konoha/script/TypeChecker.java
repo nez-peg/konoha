@@ -117,6 +117,11 @@ public abstract class TypeChecker extends VisitorMap<TreeChecker> implements Com
 		return this.function;
 	}
 
+	public final FunctionBuilder enterLambda() {
+		this.function = new FunctionBuilder(this.function);
+		return this.function;
+	}
+
 	public final void exitFunction() {
 		this.function = this.function.pop();
 	}
@@ -239,6 +244,60 @@ public abstract class TypeChecker extends VisitorMap<TreeChecker> implements Com
 		}
 		typed(node.get(_name), f.getReturnType());
 		return void.class;
+	}
+
+	public Type typeLambda(SyntaxTree node) {
+		String name = "Lambda";
+		SyntaxTree bodyNode = node.get(_body, null);
+		Type returnType = resolveType(node.get(_type, null), null);
+		Type[] paramTypes = EmptyTypes;
+		SyntaxTree params = node.get(_param, null);
+		if (node.has(_param)) {
+			int c = 0;
+			paramTypes = new Type[params.size()];
+			for (SyntaxTree p : params) {
+				paramTypes[c] = resolveType(p.get(_type, null), Object.class);
+				c++;
+			}
+		}
+		if (bodyNode == null) {
+			if (returnType != null) {
+				typeSystem.newPrototype(node, returnType, name, paramTypes);
+			}
+			node.done();
+			return void.class;
+		}
+		Functor prototype = typeSystem.getPrototype(returnType, name, paramTypes);
+		if (prototype == null && returnType != null) {
+			prototype = typeSystem.newPrototype(node, returnType, name, paramTypes);
+		}
+		node.setFunctor(prototype);
+		FunctionBuilder f = this.enterLambda();
+		if (returnType != null) {
+			f.setReturnType(returnType);
+			typed(node.get(_type), returnType);
+		}
+		if (node.has(_param)) {
+			int c = 0;
+			for (SyntaxTree sub : params) {
+				String pname = sub.getText(_name, null);
+				f.setVarType(pname, paramTypes[c]);
+				typed(sub, paramTypes[c]);
+				c++;
+			}
+		}
+		f.setParameterTypes(paramTypes);
+		try {
+			visit(bodyNode);
+		} catch (TypeCheckerException e) {
+			node.set(_body, e.errorTree);
+		}
+		this.exitFunction();
+		if (f.getReturnType() == null) {
+			f.setReturnType(void.class);
+		}
+		typed(node.get(_param), f.getReturnType());
+		return Function.class;
 	}
 
 	public void checkInFunction(SyntaxTree node) {
@@ -549,7 +608,7 @@ public abstract class TypeChecker extends VisitorMap<TreeChecker> implements Com
 	}
 
 	private Type findFuncVariable(SyntaxTree node) {
-		String name = node.toText();
+		String name = node.getText(_name, "");
 		if (this.inFunction()) {
 			if (this.function.containsVariable(name)) {
 				Type t = this.function.getVarType(name);

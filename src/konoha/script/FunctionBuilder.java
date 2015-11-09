@@ -15,6 +15,12 @@ public class FunctionBuilder {
 		this.scope = new TypeScope();
 	}
 
+	FunctionBuilder(FunctionBuilder parent) {
+		this.parent = parent;
+		this.name = "lambda";
+		this.scope = parent.scope;
+	}
+
 	public final FunctionBuilder pop() {
 		return this.parent;
 	}
