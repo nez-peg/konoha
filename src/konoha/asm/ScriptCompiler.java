@@ -86,6 +86,11 @@ public class ScriptCompiler {
 		// Class<?> clazz = this.asm.compileClass((SyntaxTree) node);
 	}
 
+	public Function compileLambda(SyntaxTree node) {
+		Class<?> lambdaClass = asm.compileLambda(node);
+		return (Function) Reflector.newInstance(lambdaClass);
+	}
+
 	public Functor newPrototypeFunction(SyntaxTree node, java.lang.reflect.Type returnType, String name, java.lang.reflect.Type[] paramTypes) {
 		String cname = this.asm.nameFunctionClass(node, name);
 		return new Functor(Syntax.Function, new FunctionPrototype(cname, returnType, name, paramTypes));

@@ -2,6 +2,7 @@ package konoha.script;
 
 import konoha.Array;
 import konoha.ArrayInt;
+import konoha.Function;
 import konoha.asm.ScriptCompiler;
 import nez.ast.TreeVisitor2;
 
@@ -92,6 +93,14 @@ public class Evaluator extends TreeVisitor2<TreeEvaluator> implements CommonSymb
 			Functor f = node.getFunctor();
 			compiler.compileFuncDecl(node, f);
 			return empty;
+		}
+	}
+
+	public class Lambda extends Undefined {
+		@Override
+		public Object acceptEval(SyntaxTree node) {
+			Function lambda = compiler.compileLambda(node);
+			return lambda;
 		}
 	}
 

@@ -622,8 +622,7 @@ public abstract class TypeChecker extends VisitorMap<TreeChecker> implements Com
 			GlobalVariable gv = this.typeSystem.getGlobalVariable(name);
 			Type t = gv.getType();
 			if (this.typeSystem.isFuncType(t)) {
-				node.sub();
-				return setFunctor(node, gv.getGetter());
+				return setFunctor(node.get(_name), gv.getGetter());
 			}
 		}
 		return null;
@@ -634,14 +633,26 @@ public abstract class TypeChecker extends VisitorMap<TreeChecker> implements Com
 			Functor f = new Functor(Syntax.FuncObject, funcType);
 			methodMatcher.init(null);
 			return found(node, f, methodMatcher, node.get(_name), node.get(_param));
-		} else {
+		} else if (inFunction()) {
 			SyntaxTree params = node.get(_param);
 			for (int i = 0; i < params.size(); i++) {
 				enforceType(Object.class, params, i);
 			}
 			params.setTag(_Array);
 			params.setType(Object[].class);
-			node.sub(_name, node.get(_name), _param, params);
+			if (params.size() > 0) {
+				node.sub(_name, node.get(_name), _param, params);
+			} else {
+				node.sub(_name, node.get(_name));
+			}
+			return setFunctor(node, KonohaFunctor.getInvokeFunc());
+		} else {
+			SyntaxTree params = node.get(_param);
+			node.sub(_name, node.get(_name));
+			for (int i = 0; i < params.size(); i++) {
+				enforceType(Object.class, params, i);
+				node.add(_expr, params.get(i));
+			}
 			return setFunctor(node, KonohaFunctor.getInvokeFunc());
 		}
 	}

@@ -1,5 +1,5 @@
 // expression test
-import konoha.hack.AST;
+//import konoha.hack.AST;
 // 1. check eval (top level)
 
 int[][] arr = {[1,2],[3,4]};

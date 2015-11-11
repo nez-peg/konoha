@@ -346,43 +346,45 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 		}
 	}
 
+	public Class<?> compileLambda(SyntaxTree node) {
+		openClass("Lambda$" + lambdaIdentifier, Function.class);
+		SyntaxTree args = node.get(_param);
+		String name = "f";
+		lambdaIdentifier++;
+		Class<?> returnType = args.getClassType();
+		Class<?>[] paramTypes = new Class<?>[args.size()];
+		for (int i = 0; i < paramTypes.length; i++) {
+			paramTypes[i] = args.get(i).getClassType();
+		}
+		mBuilders.push(mBuilder);
+		mBuilder = cBuilder.newMethodBuilder(Opcodes.ACC_PUBLIC, returnType, name, paramTypes);
+		mBuilder.enterScope();
+		for (SyntaxTree arg : args) {
+			mBuilder.defineArgument(arg.getText(_name, null), arg.getClassType());
+		}
+		visit(node.get(_body));
+		mBuilder.exitScope();
+		if (returnType != void.class) {
+			visitDefaultValue(args);
+		}
+		mBuilder.returnValue();
+		mBuilder.endMethod();
+
+		/* Constructor */
+		mBuilder = cBuilder.newConstructorBuilder(Opcodes.ACC_PUBLIC, new Class<?>[0]);
+		mBuilder.loadThis();
+		mBuilder.invokeConstructor(Type.getType(Function.class), Method.getMethod("void <init> ()"));
+		mBuilder.returnValue();
+		mBuilder.endMethod();
+
+		mBuilder = mBuilders.pop();
+		return closeClass();
+	}
+
 	public class Lambda extends Undefined {
 		@Override
 		public void acceptAsm(SyntaxTree node) {
-			openClass("Lambda$" + lambdaIdentifier, Function.class);
-			SyntaxTree args = node.get(_param);
-			String name = "f";
-			lambdaIdentifier++;
-			Class<?> returnType = args.getClassType();
-			Class<?>[] paramTypes = new Class<?>[args.size()];
-			for (int i = 0; i < paramTypes.length; i++) {
-				paramTypes[i] = args.get(i).getClassType();
-			}
-			mBuilders.push(mBuilder);
-			mBuilder = cBuilder.newMethodBuilder(Opcodes.ACC_PUBLIC, returnType, name, paramTypes);
-			mBuilder.enterScope();
-			for (SyntaxTree arg : args) {
-				mBuilder.defineArgument(arg.getText(_name, null), arg.getClassType());
-			}
-			visit(node.get(_body));
-			mBuilder.exitScope();
-			if (returnType != void.class) {
-				visitDefaultValue(args);
-			}
-			mBuilder.returnValue();
-			mBuilder.endMethod();
-
-			/* Constructor */
-			mBuilder = cBuilder.newConstructorBuilder(Opcodes.ACC_PUBLIC, new Class<?>[0]);
-			mBuilder.loadThis();
-			mBuilder.invokeConstructor(Type.getType(Function.class), Method.getMethod("void <init> ()"));
-			mBuilder.returnValue();
-			mBuilder.endMethod();
-
-			mBuilder = mBuilders.pop();
-			Class<?> lambdaClass = closeClass();
-
-			/* Lambda Expression */
+			Class<?> lambdaClass = compileLambda(node);
 			mBuilder.newInstance(Type.getType(lambdaClass));
 			mBuilder.dup();
 			mBuilder.invokeConstructor(Type.getType(lambdaClass), Method.getMethod("void <init> ()"));
