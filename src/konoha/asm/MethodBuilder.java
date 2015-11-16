@@ -57,16 +57,6 @@ public class MethodBuilder extends GeneratorAdapter {
 		this.method = method;
 	}
 
-	/* for Lambda */
-
-	public MethodBuilder(int accessFlag, Method method, ClassVisitor cv, VarScopes varScopes) {
-		super(Opcodes.ASM5, toMethodVisitor(accessFlag, method, cv), accessFlag, method.getName(), method.getDescriptor());
-		this.loopLabels = new ArrayDeque<>();
-		this.tryLabels = new ArrayDeque<>();
-		this.varScopes = varScopes;
-		this.method = method;
-	}
-
 	Method getMethod() {
 		return this.method;
 	}
@@ -325,12 +315,6 @@ public class MethodBuilder extends GeneratorAdapter {
 	public void callInterfaceMethod(Class<?> ownerClass, Class<?> returnClass, String methodName, Class<?>... paramClasses) {
 		Method methodDesc = Methods.method(returnClass, methodName, paramClasses);
 		this.invokeInterface(Type.getType(ownerClass), methodDesc);
-	}
-
-	/* for Lambda */
-
-	public VarScopes getVarScopes() {
-		return this.varScopes;
 	}
 
 	// /**
