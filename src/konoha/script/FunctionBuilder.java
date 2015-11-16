@@ -1,6 +1,7 @@
 package konoha.script;
 
 import java.lang.reflect.Type;
+import java.util.HashMap;
 
 public class FunctionBuilder {
 	FunctionBuilder parent;
@@ -8,6 +9,8 @@ public class FunctionBuilder {
 	TypeScope scope;
 	Type returnType = null;
 	private Type[] paramTypes;
+	// for lambda
+	private HashMap<String, Type> freeVarTypes = null;
 
 	FunctionBuilder(FunctionBuilder parent, String name) {
 		this.parent = parent;
@@ -17,12 +20,9 @@ public class FunctionBuilder {
 
 	FunctionBuilder(FunctionBuilder parent) {
 		this.parent = parent;
-		this.name = "lambda";
-		if (parent != null) {
-			this.scope = parent.scope;
-		} else {
-			this.scope = new TypeScope();
-		}
+		this.name = "";
+		this.scope = new TypeScope();
+		this.freeVarTypes = new HashMap<String, Type>();
 	}
 
 	public final FunctionBuilder pop() {
@@ -68,4 +68,25 @@ public class FunctionBuilder {
 	public Type[] getParameterTypes() {
 		return this.paramTypes;
 	}
+
+	/* for lambda */
+	public boolean addFreeVariable(String name, Type type) {
+		if (this.name.equals("")) {
+			return this.freeVarTypes.put(name, type) != null;
+		}
+		return false;
+	}
+
+	public Type getFreeVarType(String name) {
+		if (this.name.equals("")) {
+			return this.freeVarTypes.get(name);
+		}
+		return null;
+	}
+
+	public String[] getFreeVarNames() {
+		String[] keys = new String[this.freeVarTypes.size()];
+		return this.freeVarTypes.keySet().toArray(keys);
+	}
+	/* ---- */
 }

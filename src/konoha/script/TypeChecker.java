@@ -130,6 +130,13 @@ public abstract class TypeChecker extends VisitorMap<TreeChecker> implements Com
 		return this.function != null;
 	}
 
+	public final boolean inLambda() {
+		if (inFunction()) {
+			return this.function.getName().equals("");
+		}
+		return false;
+	}
+
 	public SyntaxTree check(SyntaxTree node) {
 		try {
 			visit(node);
@@ -297,6 +304,17 @@ public abstract class TypeChecker extends VisitorMap<TreeChecker> implements Com
 			f.setReturnType(void.class);
 		}
 		typed(node.get(_param), f.getReturnType());
+
+		// set free variables
+		String[] freeVarNames = f.getFreeVarNames();
+		SyntaxTree freeVarList = node.newInstance(_List, freeVarNames.length, null);
+		for (String key : freeVarNames) {
+			SyntaxTree freeVar = freeVarList.newInstance(_Name, 0, key);
+			freeVar.setType(f.getFreeVarType(key));
+			freeVarList.sub(_name, freeVar);
+		}
+		node.add(_list, freeVarList);
+
 		return Function.class;
 	}
 
@@ -483,6 +501,19 @@ public abstract class TypeChecker extends VisitorMap<TreeChecker> implements Com
 
 	public Type tryCheckNameType(SyntaxTree node, boolean rewrite) {
 		String name = node.toText();
+		if (this.inLambda()) {
+			if (this.function.containsVariable(name)) {
+				return this.function.getVarType(name);
+			} else if (this.function.parent != null && this.function.parent.containsVariable(name)) {
+				Type varType = this.function.parent.getVarType(name);
+				if (rewrite) {
+					node.setTag(_GetFreeVar);
+					node.setType(varType);
+					this.function.addFreeVariable(name, varType);
+				}
+				return varType;
+			}
+		}
 		if (this.inFunction()) {
 			if (this.function.containsVariable(name)) {
 				return this.function.getVarType(name);
@@ -524,6 +555,20 @@ public abstract class TypeChecker extends VisitorMap<TreeChecker> implements Com
 		assert (leftnode.is(_Name));
 		String name = node.getText(_left, "");
 		Type rightType = visit(node.get(_right));
+		if (this.inLambda()) {
+			if (this.function.containsVariable(name)) {
+				Type t = this.function.getVarType(name);
+				node.get(_left).setType(t);
+				enforceType(t, node, _right);
+				return t;
+			} else if (this.function.parent != null && this.function.parent.containsVariable(name)) {
+				Type t = this.function.parent.getVarType(name);
+				node.setTag(_SetFreeVar);
+				leftnode.setType(t);
+				enforceType(t, node, _right);
+				return t;
+			}
+		}
 		if (this.inFunction()) {
 			if (this.function.containsVariable(name)) {
 				Type t = this.function.getVarType(name);
