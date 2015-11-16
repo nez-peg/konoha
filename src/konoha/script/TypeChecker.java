@@ -117,12 +117,24 @@ public abstract class TypeChecker extends VisitorMap<TreeChecker> implements Com
 		return this.function;
 	}
 
+	public final FunctionBuilder enterLambda() {
+		this.function = new FunctionBuilder(this.function);
+		return this.function;
+	}
+
 	public final void exitFunction() {
 		this.function = this.function.pop();
 	}
 
 	public final boolean inFunction() {
 		return this.function != null;
+	}
+
+	public final boolean inLambda() {
+		if (inFunction()) {
+			return this.function.getName().equals("");
+		}
+		return false;
 	}
 
 	public SyntaxTree check(SyntaxTree node) {
@@ -239,6 +251,71 @@ public abstract class TypeChecker extends VisitorMap<TreeChecker> implements Com
 		}
 		typed(node.get(_name), f.getReturnType());
 		return void.class;
+	}
+
+	public Type typeLambda(SyntaxTree node) {
+		String name = "Lambda";
+		SyntaxTree bodyNode = node.get(_body, null);
+		Type returnType = resolveType(node.get(_type, null), null);
+		Type[] paramTypes = EmptyTypes;
+		SyntaxTree params = node.get(_param, null);
+		if (node.has(_param)) {
+			int c = 0;
+			paramTypes = new Type[params.size()];
+			for (SyntaxTree p : params) {
+				paramTypes[c] = resolveType(p.get(_type, null), Object.class);
+				c++;
+			}
+		}
+		if (bodyNode == null) {
+			if (returnType != null) {
+				typeSystem.newPrototype(node, returnType, name, paramTypes);
+			}
+			node.done();
+			return void.class;
+		}
+		Functor prototype = typeSystem.getPrototype(returnType, name, paramTypes);
+		if (prototype == null && returnType != null) {
+			prototype = typeSystem.newPrototype(node, returnType, name, paramTypes);
+		}
+		node.setFunctor(prototype);
+		FunctionBuilder f = this.enterLambda();
+		if (returnType != null) {
+			f.setReturnType(returnType);
+			typed(node.get(_type), returnType);
+		}
+		if (node.has(_param)) {
+			int c = 0;
+			for (SyntaxTree sub : params) {
+				String pname = sub.getText(_name, null);
+				f.setVarType(pname, paramTypes[c]);
+				typed(sub, paramTypes[c]);
+				c++;
+			}
+		}
+		f.setParameterTypes(paramTypes);
+		try {
+			visit(bodyNode);
+		} catch (TypeCheckerException e) {
+			node.set(_body, e.errorTree);
+		}
+		this.exitFunction();
+		if (f.getReturnType() == null) {
+			f.setReturnType(void.class);
+		}
+		typed(node.get(_param), f.getReturnType());
+
+		// set free variables
+		String[] freeVarNames = f.getFreeVarNames();
+		SyntaxTree freeVarList = node.newInstance(_List, freeVarNames.length, null);
+		for (String key : freeVarNames) {
+			SyntaxTree freeVar = freeVarList.newInstance(_Name, 0, key);
+			freeVar.setType(f.getFreeVarType(key));
+			freeVarList.sub(_name, freeVar);
+		}
+		node.add(_list, freeVarList);
+
+		return Function.class;
 	}
 
 	public void checkInFunction(SyntaxTree node) {
@@ -424,6 +501,19 @@ public abstract class TypeChecker extends VisitorMap<TreeChecker> implements Com
 
 	public Type tryCheckNameType(SyntaxTree node, boolean rewrite) {
 		String name = node.toText();
+		if (this.inLambda()) {
+			if (this.function.containsVariable(name)) {
+				return this.function.getVarType(name);
+			} else if (this.function.parent != null && this.function.parent.containsVariable(name)) {
+				Type varType = this.function.parent.getVarType(name);
+				if (rewrite) {
+					node.setTag(_GetFreeVar);
+					node.setType(varType);
+					this.function.addFreeVariable(name, varType);
+				}
+				return varType;
+			}
+		}
 		if (this.inFunction()) {
 			if (this.function.containsVariable(name)) {
 				return this.function.getVarType(name);
@@ -465,6 +555,20 @@ public abstract class TypeChecker extends VisitorMap<TreeChecker> implements Com
 		assert (leftnode.is(_Name));
 		String name = node.getText(_left, "");
 		Type rightType = visit(node.get(_right));
+		if (this.inLambda()) {
+			if (this.function.containsVariable(name)) {
+				Type t = this.function.getVarType(name);
+				node.get(_left).setType(t);
+				enforceType(t, node, _right);
+				return t;
+			} else if (this.function.parent != null && this.function.parent.containsVariable(name)) {
+				Type t = this.function.parent.getVarType(name);
+				node.setTag(_SetFreeVar);
+				leftnode.setType(t);
+				enforceType(t, node, _right);
+				return t;
+			}
+		}
 		if (this.inFunction()) {
 			if (this.function.containsVariable(name)) {
 				Type t = this.function.getVarType(name);
@@ -549,7 +653,7 @@ public abstract class TypeChecker extends VisitorMap<TreeChecker> implements Com
 	}
 
 	private Type findFuncVariable(SyntaxTree node) {
-		String name = node.toText();
+		String name = node.getText(_name, "");
 		if (this.inFunction()) {
 			if (this.function.containsVariable(name)) {
 				Type t = this.function.getVarType(name);
@@ -563,8 +667,7 @@ public abstract class TypeChecker extends VisitorMap<TreeChecker> implements Com
 			GlobalVariable gv = this.typeSystem.getGlobalVariable(name);
 			Type t = gv.getType();
 			if (this.typeSystem.isFuncType(t)) {
-				node.sub();
-				return setFunctor(node, gv.getGetter());
+				return setFunctor(node.get(_name), gv.getGetter());
 			}
 		}
 		return null;
@@ -575,14 +678,26 @@ public abstract class TypeChecker extends VisitorMap<TreeChecker> implements Com
 			Functor f = new Functor(Syntax.FuncObject, funcType);
 			methodMatcher.init(null);
 			return found(node, f, methodMatcher, node.get(_name), node.get(_param));
-		} else {
+		} else if (inFunction()) {
 			SyntaxTree params = node.get(_param);
 			for (int i = 0; i < params.size(); i++) {
 				enforceType(Object.class, params, i);
 			}
 			params.setTag(_Array);
 			params.setType(Object[].class);
-			node.sub(_name, node.get(_name), _param, params);
+			if (params.size() > 0) {
+				node.sub(_name, node.get(_name), _param, params);
+			} else {
+				node.sub(_name, node.get(_name));
+			}
+			return setFunctor(node, KonohaFunctor.getInvokeFunc());
+		} else {
+			SyntaxTree params = node.get(_param);
+			node.sub(_name, node.get(_name));
+			for (int i = 0; i < params.size(); i++) {
+				enforceType(Object.class, params, i);
+				node.add(_expr, params.get(i));
+			}
 			return setFunctor(node, KonohaFunctor.getInvokeFunc());
 		}
 	}

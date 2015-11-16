@@ -40,6 +40,8 @@ public interface CommonSymbols {
 	public final static Symbol _NewArray2 = Symbol.tag("NewArray2");
 
 	public final static Symbol _Functor = Symbol.tag("Functor");
+	public final static Symbol _GetFreeVar = Symbol.tag("GetFreeVar");
+	public final static Symbol _SetFreeVar = Symbol.tag("SetFreeVar");
 	public final static Symbol _Const = Symbol.tag("Const");
 	public final static Symbol _NullCheck = Symbol.tag("NullCheck");
 	public final static Symbol _NonNullCheck = Symbol.tag("NonNullCheck");
