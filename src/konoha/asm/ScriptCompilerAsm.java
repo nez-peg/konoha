@@ -422,99 +422,109 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 	}
 
 	/* class */
-	// public Class<?> compileClass(SyntaxTree node) {
-	// String name = node.getText(_name, null);
-	// SyntaxTree implNode = node.get(_impl, null);
-	// SyntaxTree bodyNode = node.get(_body, null);
-	// Class<?> superClass = null;
-	// if (node.has(_super)) {
-	// superClass = typeSystem.getType(classPath + node.getText(_super,
-	// null)).getClass();
-	// }
-	// Class<?>[] implClasses = null;
-	// if (implNode != null) {
-	// implClasses = new Class<?>[implNode.size()];
-	// for (int i = 0; i < implNode.size(); i++) {
-	// implClasses[i] = typeSystem.getType(classPath + implNode.getText(i,
-	// null)).getClass();
-	// }
-	// }
-	// openClass(name, superClass, implClasses);
-	// this.cBuilder.visitSource(node.getSource().getResourceName(), null);
-	// for (SyntaxTree n : bodyNode) {
-	// visit(n);
-	// }
-	// return closeClass();
-	// }
-	//
-	// public class ClassDecl extends Undefined {
-	// @Override
-	// public void acceptAsm(SyntaxTree node) {
-	// String name = node.getText(_name, null);
-	// SyntaxTree implNode = node.get(_impl, null);
-	// SyntaxTree bodyNode = node.get(_body, null);
-	// Class<?> superClass = null;
-	// if (node.has(_super)) {
-	// superClass = typeSystem.getType(classPath + node.getText(_super,
-	// null)).getClass();
-	// }
-	// Class<?>[] implClasses = null;
-	// if (implNode != null) {
-	// implClasses = new Class<?>[implNode.size()];
-	// for (int i = 0; i < implNode.size(); i++) {
-	// implClasses[i] = typeSystem.getType(classPath + implNode.getText(i,
-	// null)).getClass();
-	// }
-	// }
-	// openClass(name, superClass, implClasses);
-	// cBuilder.visitSource(node.getSource().getResourceName(), null);
-	// for (SyntaxTree n : bodyNode) {
-	// visit(n);
-	// }
-	// closeClass();
-	// }
-	// }
-	//
-	// public class Constructor extends Undefined {
-	// @Override
-	// public void acceptAsm(SyntaxTree node) {
-	// SyntaxTree args = node.get(_param);
-	// Class<?>[] paramClasses = new Class<?>[args.size()];
-	// for (int i = 0; i < args.size(); i++) {
-	// paramClasses[i] = args.get(i).getClassType();
-	// }
-	// mBuilder = cBuilder.newConstructorBuilder(Opcodes.ACC_PUBLIC,
-	// paramClasses);
-	// mBuilder.enterScope();
-	// for (SyntaxTree arg : args) {
-	// mBuilder.defineArgument(arg.getText(_name, null), arg.getClassType());
-	// }
-	// visit(node.get(_body));
-	// mBuilder.exitScope();
-	// mBuilder.loadThis();
-	// mBuilder.returnValue();
-	// mBuilder.endMethod();
-	// }
-	// }
-	//
-	// public class FieldDecl extends Undefined {
-	// @Override
-	// public void acceptAsm(SyntaxTree node) {
-	// // TODO
-	// // TypedTree list = node.get(_list);
-	// // for (TypedTree field : list) {
-	// // cBuilder.addField(Opcodes.ACC_PUBLIC, field.getText(_name, null),
-	// // this.typeof(field), );
-	// // }
-	// }
-	// }
-	//
-	// public class MethodDecl extends Undefined {
-	// @Override
-	// public void acceptAsm(SyntaxTree node) {
-	// // TODO
-	// }
-	// }
+	public Class<?> compileClass(SyntaxTree node) {
+		String name = node.getText(_name, null);
+		SyntaxTree implNode = node.get(_impl, null);
+		SyntaxTree bodyNode = node.get(_body, null);
+		Class<?> superClass = null;
+		if (node.has(_super)) {
+			superClass = node.get(_super).getClassType();
+		}
+		Class<?>[] implClasses = null;
+		if (implNode != null) {
+			implClasses = new Class<?>[implNode.size()];
+			for (int i = 0; i < implNode.size(); i++) {
+				implClasses[i] = implNode.get(i).getClassType();
+			}
+		}
+		openClass(name, superClass, implClasses);
+		cBuilder.visitSource(node.getSource().getResourceName(), null);
+		boolean hasConstructor = false;
+		for (SyntaxTree n : bodyNode) {
+			visit(n);
+			if (n.is(_Constructor)) {
+				hasConstructor = true;
+			}
+		}
+		if (!hasConstructor) {
+			mBuilder = cBuilder.newConstructorBuilder(Opcodes.ACC_PUBLIC, new Class<?>[0]);
+			mBuilder.loadThis();
+			mBuilder.invokeConstructor(Type.getType(Object.class), Method.getMethod("void <init> ()"));
+			mBuilder.returnValue();
+			mBuilder.endMethod();
+		}
+		return closeClass();
+	}
+
+	public class ClassDecl extends Undefined {
+		@Override
+		public void acceptAsm(SyntaxTree node) {
+			compileClass(node);
+		}
+	}
+
+	private boolean inConstructor = false;
+
+	public class Constructor extends Undefined {
+		@Override
+		public void acceptAsm(SyntaxTree node) {
+			inConstructor = true;
+			SyntaxTree args = node.get(_param);
+			Class<?>[] paramClasses = new Class<?>[args.size()];
+			for (int i = 0; i < args.size(); i++) {
+				paramClasses[i] = args.get(i).getClassType();
+			}
+			mBuilder = cBuilder.newConstructorBuilder(Opcodes.ACC_PUBLIC, paramClasses);
+			mBuilder.enterScope();
+			for (SyntaxTree arg : args) {
+				mBuilder.defineArgument(arg.getText(_name, null), arg.getClassType());
+			}
+			mBuilder.loadThis();
+			mBuilder.dup();
+			mBuilder.invokeConstructor(Type.getType(Object.class), Method.getMethod("void <init> ()"));
+			mBuilder.createNewVarAndStore("this", Object.class);
+			visit(node.get(_body));
+			mBuilder.exitScope();
+			mBuilder.returnValue();
+			mBuilder.endMethod();
+			inConstructor = false;
+		}
+	}
+
+	public class FieldDecl extends Undefined {
+		@Override
+		public void acceptAsm(SyntaxTree node) {
+			for (SyntaxTree field : node) {
+				cBuilder.addField(Opcodes.ACC_PUBLIC, field.getText(_name, null), field.get(_name).getClassType(), null);
+			}
+		}
+	}
+
+	public class MethodDecl extends Undefined {
+		@Override
+		public void acceptAsm(SyntaxTree node) {
+			SyntaxTree nameNode = node.get(_name);
+			SyntaxTree args = node.get(_param);
+			String name = nameNode.toText();
+			Class<?> returnType = nameNode.getClassType();
+			Class<?>[] paramTypes = new Class<?>[args.size()];
+			for (int i = 0; i < paramTypes.length; i++) {
+				paramTypes[i] = args.get(i).getClassType();
+			}
+			mBuilder = cBuilder.newMethodBuilder(Opcodes.ACC_PUBLIC, returnType, name, paramTypes);
+			mBuilder.enterScope();
+			for (SyntaxTree arg : args) {
+				mBuilder.defineArgument(arg.getText(_name, null), arg.getClassType());
+			}
+			visit(node.get(_body));
+			mBuilder.exitScope();
+			if (returnType != void.class) {
+				visitDefaultValue(nameNode);
+			}
+			mBuilder.returnValue();
+			mBuilder.endMethod();
+		}
+	}
 
 	private void visitStatementAsBlock(SyntaxTree node) {
 		if (!node.is(_Block)) {
@@ -1056,7 +1066,7 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 	public class MultiVarDecl extends Undefined {
 		@Override
 		public void acceptAsm(SyntaxTree node) {
-			for (SyntaxTree sub : node) {
+			for (SyntaxTree sub : node.get(_list)) {
 				SyntaxTree varNode = sub.get(_name);
 				VarEntry var = mBuilder.createNewVar(varNode.toText(), varNode.getClassType());
 				if (sub.has(_expr)) {
@@ -1152,6 +1162,17 @@ public class ScriptCompilerAsm extends TreeVisitor2<TreeAsm> implements CommonSy
 		public void acceptAsm(SyntaxTree node) {
 			VarEntry var = mBuilder.getVar(node.toText());
 			mBuilder.loadFromVar(var);
+		}
+	}
+
+	public class This extends Undefined {
+		@Override
+		public void acceptAsm(SyntaxTree node) {
+			if (inConstructor) {
+				mBuilder.loadFromVar(mBuilder.getVar("this"));
+			} else {
+				mBuilder.loadThis();
+			}
 		}
 	}
 

@@ -143,6 +143,34 @@ public class KonohaChecker extends TypeChecker implements CommonSymbols {
 		}
 	}
 
+	public class ClassDecl extends Undefined {
+		@Override
+		public Type acceptType(SyntaxTree node) {
+			return typeClassDecl(node);
+		}
+	}
+
+	public class Constructor extends Undefined {
+		@Override
+		public Type acceptType(SyntaxTree node) {
+			return typeConstructor(node);
+		}
+	}
+
+	public class FieldDecl extends Undefined {
+		@Override
+		public Type acceptType(SyntaxTree node) {
+			return typeFieldDecl(node);
+		}
+	}
+
+	public class MethodDecl extends Undefined {
+		@Override
+		public Type acceptType(SyntaxTree node) {
+			return typeMethodDecl(node);
+		}
+	}
+
 	public class FuncDecl extends Undefined {
 		@Override
 		public Type acceptType(SyntaxTree node) {
@@ -617,6 +645,13 @@ public class KonohaChecker extends TypeChecker implements CommonSymbols {
 		@Override
 		public Type acceptType(SyntaxTree node) {
 			return typeField(node);
+		}
+	}
+
+	public class This extends Undefined {
+		@Override
+		public Type acceptType(SyntaxTree node) {
+			return Object.class;
 		}
 	}
 

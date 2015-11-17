@@ -1,4 +1,4 @@
-
+//import konoha.hack.AST;
 int a,b=1;
 assert(a == 0);
 assert(b == 1);
@@ -16,4 +16,3 @@ void f() {
 }
 
 f();
-
