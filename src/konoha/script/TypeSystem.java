@@ -168,6 +168,10 @@ public class TypeSystem extends FunctorLookup implements CommonSymbols {
 		Hacker.hack(c, context);
 	}
 
+	public void loadDefinedClass(Class<?> c) {
+		this.setType(c.getSimpleName(), c);
+	}
+
 	public void importStaticClass(String path) throws ClassNotFoundException {
 		Class<?> c = Class.forName(path);
 		if (Hacker.isHackerClass(c)) {
