@@ -2,8 +2,10 @@ package konoha.syntax;
 
 import java.lang.reflect.Type;
 
+import konoha.asm.ScriptCompilerAsm;
 import konoha.asm.TreeAsm;
 import konoha.script.CommonSymbols;
+import konoha.script.Evaluator;
 import konoha.script.ScriptContext;
 import konoha.script.SyntaxTree;
 import konoha.script.TreeChecker;
@@ -17,11 +19,15 @@ public abstract class SyntaxExtension implements TreeChecker, TreeDesugar, TreeE
 	protected ScriptContext context;
 	protected TypeSystem typeSystem;
 	protected TypeChecker checker;
+	protected Evaluator eval;
+	protected ScriptCompilerAsm asm;
 
 	public SyntaxExtension(ScriptContext context) {
 		this.context = context;
 		this.typeSystem = context.getTypeSystem();
 		this.checker = context.getTypeChecker();
+		this.eval = context.getEvaluator();
+		this.asm = context.getScriptCompilerAsm();
 	}
 
 	public abstract String getName();

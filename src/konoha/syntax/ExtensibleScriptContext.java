@@ -2,9 +2,10 @@ package konoha.syntax;
 
 import java.lang.reflect.Method;
 
+import konoha.asm.ScriptCompiler;
 import konoha.asm.ScriptCompilerAsm;
-import konoha.script.Reflector;
 import konoha.script.Evaluator;
+import konoha.script.Reflector;
 import konoha.script.SyntaxTree;
 import konoha.script.TypeChecker;
 import konoha.script.TypeSystem;
@@ -16,6 +17,7 @@ public class ExtensibleScriptContext {
 	protected TypeSystem typeSystem;
 	protected TypeChecker checker;
 	protected Evaluator eval;
+	protected ScriptCompiler compiler;
 	protected ScriptCompilerAsm asm;
 
 	protected Parser getParser() {
@@ -28,6 +30,14 @@ public class ExtensibleScriptContext {
 
 	protected TypeChecker getTypeChecker() {
 		return checker;
+	}
+
+	protected Evaluator getEvaluator() {
+		return eval;
+	}
+
+	protected ScriptCompilerAsm getScriptCompilerAsm() {
+		return asm;
 	}
 
 	public void addSyntaxExtension(SyntaxExtension s) {

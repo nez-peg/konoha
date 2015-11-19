@@ -16,12 +16,12 @@ import nez.ast.Tree;
 public class ScriptCompiler {
 	TypeSystem typeSystem;
 	final ScriptClassLoader cLoader;
-	private ScriptCompilerAsm asm;
+	public ScriptCompilerAsm asm;
 
 	public ScriptCompiler(TypeSystem typeSystem) {
 		this.typeSystem = typeSystem;
 		this.cLoader = new ScriptClassLoader(typeSystem);
-		this.asm = new ScriptCompilerAsm(this.typeSystem, this.cLoader);
+		this.asm = new KonohaCompilerAsm(this.typeSystem, this.cLoader);
 		this.typeSystem.init(this);
 	}
 
