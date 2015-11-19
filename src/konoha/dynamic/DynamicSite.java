@@ -23,9 +23,9 @@ public abstract class DynamicSite extends MutableCallSite {
 		Class<?>[] p = new Class<?>[paramTypes.length];
 		for (int i = 0; i < paramTypes.length; i++) {
 			p[i] = Lang.toClassType(paramTypes[i]);
-			if (p[i].isPrimitive()) {
-				p[i] = Object.class;
-			}
+			// if (p[i].isPrimitive()) {
+			p[i] = Object.class;
+			// }
 		}
 		return MethodType.methodType(Lang.toClassType(returnType), p);
 	}
