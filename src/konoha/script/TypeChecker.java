@@ -198,6 +198,16 @@ public abstract class TypeChecker extends VisitorMap<TreeChecker> implements Com
 
 	/* ClassDecl */
 	public Type typeClassDecl(SyntaxTree node) {
+		if (node.has(_super)) {
+			SyntaxTree superNode = node.get(_super);
+			superNode.setType(resolveType(superNode, Object.class));
+		}
+		if (node.has(_impl)) {
+			SyntaxTree implNode = node.get(_impl);
+			for (SyntaxTree i : implNode) {
+				i.setType(resolveType(i, Object.class));
+			}
+		}
 		visit(node.get(_body));
 		return void.class;
 	}
@@ -1014,7 +1024,7 @@ public abstract class TypeChecker extends VisitorMap<TreeChecker> implements Com
 			return found(node, f, methodMatcher, indexer.get(_recv), indexer.get(_param), expr);
 		}
 		if (typeSystem.isDynamic(recvType)) {
-			f = new Functor(Syntax.SetIndexer, new MethodSite(typeSystem, "set", void.class, a));
+			f = new Functor(Syntax.SetIndexer, new MethodSite(typeSystem, "set", Object.class, a));
 			return setDynamicFunctor(node, f, indexer.get(_recv), indexer.get(_param), expr);
 		}
 		Functor[] unmatched = typeSystem.getMethods(recvType, "set");
