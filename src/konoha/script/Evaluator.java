@@ -9,7 +9,7 @@ import nez.ast.TreeVisitor2;
 public class Evaluator extends TreeVisitor2<TreeEvaluator> implements CommonSymbols {
 	ScriptContext context;
 	TypeSystem typeSystem;
-	private ScriptCompiler compiler;
+	public ScriptCompiler compiler;
 
 	public Evaluator(ScriptContext sc, TypeSystem ts) {
 		super();
@@ -122,13 +122,13 @@ public class Evaluator extends TreeVisitor2<TreeEvaluator> implements CommonSymb
 		}
 	}
 
-	public class ClassDecl extends Undefined {
-		@Override
-		public Object acceptEval(SyntaxTree node) {
-			compiler.compileClassDecl(node);
-			return empty;
-		}
-	}
+	// public class ClassDecl extends Undefined {
+	// @Override
+	// public Object acceptEval(SyntaxTree node) {
+	// compiler.compileClassDecl(node);
+	// return empty;
+	// }
+	// }
 
 	/* boolean */
 
@@ -340,9 +340,9 @@ public class Evaluator extends TreeVisitor2<TreeEvaluator> implements CommonSymb
 	public class NewArray2 extends Undefined {
 		@Override
 		public Object acceptEval(SyntaxTree node) {
-			int sizex = (Integer) visit(node.get(0));
+			// int sizex = (Integer) visit(node.get(0));
 			int sizey = (Integer) visit(node.get(1));
-			Class<?> type = node.getClassType();
+			// Class<?> type = node.getClassType();
 			Class<?> atype = Lang.getArrayElementClass(node.getType());
 			Class<?> aatype = Lang.getArrayElementClass(Lang.getArrayElementType(node.getType()));
 			Object aa = java.lang.reflect.Array.newInstance(aatype, sizey);
