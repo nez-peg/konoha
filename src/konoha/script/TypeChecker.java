@@ -200,7 +200,8 @@ public abstract class TypeChecker extends VisitorMap<TreeChecker> implements Com
 	public Type typeClassDecl(SyntaxTree node) {
 		if (node.has(_super)) {
 			SyntaxTree superNode = node.get(_super);
-			superNode.setType(resolveType(superNode, Object.class));
+			Type stype = resolveType(superNode, Object.class);
+			superNode.setType(stype);
 		}
 		if (node.has(_impl)) {
 			SyntaxTree implNode = node.get(_impl);

@@ -1,5 +1,6 @@
 package konoha.asm;
 
+import java.lang.annotation.Annotation;
 import java.lang.invoke.CallSite;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
@@ -220,6 +221,17 @@ public abstract class ScriptCompilerAsm extends VisitorMap<TreeAsm> implements C
 		return c;
 	}
 
+	public void openInterface(String name, Class<?>[] superInterfaces) {
+		if (this.cBuilder != null) {
+			cBuilders.push(this.cBuilder);
+		}
+		this.cBuilder = new ClassBuilder(Opcodes.ACC_PUBLIC | Opcodes.ACC_INTERFACE | Opcodes.ACC_ABSTRACT, name, null, null, superInterfaces);
+	}
+
+	public Class<?> closeInterface() {
+		return this.closeClass();
+	}
+
 	/* global variable */
 
 	public Class<?> compileGlobalVariableClass(Class<?> t, String name) {
@@ -366,6 +378,35 @@ public abstract class ScriptCompilerAsm extends VisitorMap<TreeAsm> implements C
 		cBuilder.visitSource(node.getSource().getResourceName(), null);
 		visit(node);
 		return closeClass();
+	}
+
+	/* interface */
+	public Class<?> compileInterface(SyntaxTree node) {
+		String name = node.getText(_name, null);
+		SyntaxTree superNode = node.get(_super, null);
+		Class<?>[] superInterfaces = null;
+		if (superNode != null) {
+			superInterfaces = new Class<?>[superNode.size()];
+			int i = 0;
+			for (SyntaxTree n : superNode) {
+				superInterfaces[i] = n.getClassType();
+				i++;
+			}
+		}
+		openInterface(name, superInterfaces);
+		cBuilder.visitSource(node.getSource().getResourceName(), null);
+		visit(node);
+		return closeInterface();
+	}
+
+	/* Annotation */
+	public Class<?> compileAnnotation(SyntaxTree node) {
+		String name = node.getText(_name, null);
+		Class<?>[] superInterfaces = { Annotation.class };
+		openInterface(name, superInterfaces);
+		cBuilder.visitSource(node.getSource().getResourceName(), null);
+		visit(node);
+		return closeInterface();
 	}
 
 	protected boolean has(Symbol tag, SyntaxTree node) {
