@@ -2,8 +2,13 @@ package konoha.syntax;
 
 import java.util.ArrayList;
 
+import konoha.script.Evaluator;
+import konoha.script.FunctionBuilder;
+import konoha.script.Functor;
 import konoha.script.ScriptContext;
 import konoha.script.SyntaxTree;
+import konoha.script.TypeChecker;
+import konoha.script.TypeCheckerException;
 import nez.ast.Symbol;
 
 import org.objectweb.asm.Opcodes;
@@ -30,7 +35,7 @@ public abstract class ClassDeclaration extends SyntaxExtension {
 
 	protected static Class<?> superClass = Object.class;
 
-	protected static ArrayList<SyntaxTree> fields;
+	protected static ArrayList<SyntaxTree> fields = null;
 
 	protected boolean has(Symbol tag, SyntaxTree node) {
 		for (SyntaxTree sub : node) {
@@ -85,14 +90,25 @@ class ClassDecl extends ClassDeclaration {
 
 	@Override
 	public java.lang.reflect.Type acceptType(SyntaxTree node) {
-		return checker.typeClassDecl(node);
+		if (node.has(_super)) {
+			SyntaxTree superNode = node.get(_super);
+			java.lang.reflect.Type stype = checker.resolveType(superNode, Object.class);
+			superNode.setType(stype);
+		}
+		if (node.has(_impl)) {
+			SyntaxTree implNode = node.get(_impl);
+			for (SyntaxTree i : implNode) {
+				i.setType(checker.resolveType(i, Object.class));
+			}
+		}
+		checker.visit(node.get(_body));
+		return void.class;
 	}
 
-	@SuppressWarnings("static-access")
 	@Override
 	public Object acceptEval(SyntaxTree node) {
 		eval.compiler.compileClassDecl(node);
-		return eval.empty;
+		return Evaluator.empty;
 	}
 }
 
@@ -129,7 +145,57 @@ class Constructor extends ClassDeclaration {
 
 	@Override
 	public java.lang.reflect.Type acceptType(SyntaxTree node) {
-		return checker.typeConstructor(node);
+		String name = "<init>";
+		SyntaxTree bodyNode = node.get(_body, null);
+		java.lang.reflect.Type returnType = void.class;
+		java.lang.reflect.Type[] paramTypes = TypeChecker.EmptyTypes;
+		SyntaxTree params = node.get(_param, null);
+		if (node.has(_param)) {
+			int c = 0;
+			paramTypes = new java.lang.reflect.Type[params.size()];
+			for (SyntaxTree p : params) {
+				paramTypes[c] = checker.resolveType(p.get(_type, null), Object.class);
+				c++;
+			}
+		}
+		if (bodyNode == null) {
+			if (returnType != null) {
+				typeSystem.newPrototype(node, returnType, name, paramTypes);
+			}
+			node.done();
+			return void.class;
+		}
+		Functor prototype = typeSystem.getPrototype(returnType, name, paramTypes);
+		if (prototype == null && returnType != null) {
+			prototype = typeSystem.newPrototype(node, returnType, name, paramTypes);
+		}
+		node.setFunctor(prototype);
+		FunctionBuilder f = checker.enterFunction(name);
+		if (returnType != null) {
+			f.setReturnType(returnType);
+			checker.typed(node.get(_type), returnType);
+		}
+		if (node.has(_param)) {
+			int c = 0;
+			for (SyntaxTree sub : params) {
+				String pname = sub.getText(_name, null);
+				f.setVarType(pname, paramTypes[c]);
+				checker.typed(sub, paramTypes[c]);
+				c++;
+			}
+		}
+		f.setParameterTypes(paramTypes);
+		try {
+			checker.visit(bodyNode);
+		} catch (TypeCheckerException e) {
+			node.set(_body, e.errorTree);
+		}
+		checker.exitFunction();
+		if (f.getReturnType() == null) {
+			f.setReturnType(void.class);
+		}
+		checker.typed(node.get(_param), f.getReturnType());
+		return void.class;
 	}
 }
 
@@ -147,7 +213,21 @@ class FieldDecl extends ClassDeclaration {
 
 	@Override
 	public java.lang.reflect.Type acceptType(SyntaxTree node) {
-		return checker.typeFieldDecl(node);
+		java.lang.reflect.Type type = checker.resolveType(node.get(_type), null);
+		SyntaxTree list = node.get(_list);
+		for (SyntaxTree field : list) {
+			java.lang.reflect.Type exprType = Object.class;
+			if (field.has(_expr)) {
+				exprType = checker.visit(field.get(_expr));
+			}
+			if (type == null) {
+				type = exprType;
+			}
+			field.get(_name).setType(type);
+		}
+		node.sub(_list, list);
+		node.makeFlattenedList(list);
+		return void.class;
 	}
 }
 
