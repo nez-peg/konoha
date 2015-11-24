@@ -89,7 +89,12 @@ public class KonohaCompilerAsm extends ScriptCompilerAsm implements CommonSymbol
 			String argDesc = "";
 			for (SyntaxTree fv : fvList) {
 				VarEntry entry = mBuilder.getVar(fv.toText());
-				mBuilder.loadFromVar(entry);
+				if (entry != null) {
+					mBuilder.loadFromVar(entry);
+				} else {
+					mBuilder.loadThis();
+					mBuilder.getField(cBuilder.getTypeDesc(), "fv$" + fv.toText(), Type.getType(fv.getClassType()));
+				}
 				argDesc += Type.getType(fv.getClassType()).getClassName();
 				if (fv != fvList.get(fvList.size() - 1)) {
 					argDesc += ",";

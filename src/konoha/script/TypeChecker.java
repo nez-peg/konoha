@@ -504,14 +504,32 @@ public abstract class TypeChecker extends VisitorMap<TreeChecker> implements Com
 		if (this.inLambda()) {
 			if (this.function.containsVariable(name)) {
 				return this.function.getVarType(name);
-			} else if (this.function.parent != null && this.function.parent.containsVariable(name)) {
-				Type varType = this.function.parent.getVarType(name);
-				if (rewrite) {
+			} else {
+				FunctionBuilder func = this.function.parent;
+				Type varType = null;
+				while (func != null && varType == null) {
+					if (func.containsVariable(name)) {
+						varType = func.getVarType(name);
+					}
+					func = func.parent;
+				}
+				if (varType != null) {
+					func = this.function.parent;
+					while (func != null) {
+						if (func.containsVariable(name)) {
+							break;
+						} else {
+							func.addFreeVariable(name, varType);
+						}
+						func = func.parent;
+					}
+				}
+				if (varType != null && rewrite) {
 					node.setTag(_GetFreeVar);
 					node.setType(varType);
 					this.function.addFreeVariable(name, varType);
+					return varType;
 				}
-				return varType;
 			}
 		}
 		if (this.inFunction()) {
