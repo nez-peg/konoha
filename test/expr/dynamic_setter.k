@@ -17,5 +17,4 @@ function f(p, age) {
   return p.age = age;
 }
 
-assert(f(p, 19) == 19); 
-
+assert(f(p, 19) == 19);

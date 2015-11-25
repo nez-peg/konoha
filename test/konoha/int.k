@@ -35,17 +35,16 @@ f(7, 3);
 int a = 0b0001;
 int b = 0b0010;
 
-assert(a & b == 0);
-assert(a | b == 0b0011);
+assert((a & b) == 0);
+assert((a | b) == 0b0011);
 assert(~0 == -1);
 
 void g(int a, int b) {
- assert(a & b == 0);
- assert(a | b == 0b0011);
+ assert((a & b) == 0);
+ assert((a | b) == 0b0011);
  assert(~0 == -1);
 }
 
 g(0b0001, 0b0010);
 
 println("int ok");
-

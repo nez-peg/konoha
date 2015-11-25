@@ -16,12 +16,12 @@ import nez.ast.Tree;
 public class ScriptCompiler {
 	TypeSystem typeSystem;
 	final ScriptClassLoader cLoader;
-	private ScriptCompilerAsm asm;
+	public ScriptCompilerAsm asm;
 
 	public ScriptCompiler(TypeSystem typeSystem) {
 		this.typeSystem = typeSystem;
 		this.cLoader = new ScriptClassLoader(typeSystem);
-		this.asm = new ScriptCompilerAsm(this.typeSystem, this.cLoader);
+		this.asm = new KonohaCompilerAsm(this.typeSystem, this.cLoader);
 		this.typeSystem.init(this);
 	}
 
@@ -87,8 +87,18 @@ public class ScriptCompiler {
 	}
 
 	public Function compileLambda(SyntaxTree node) {
-		Class<?> lambdaClass = asm.compileLambda(node);
+		Class<?> lambdaClass = this.asm.compileLambda(node);
 		return (Function) Reflector.newInstance(lambdaClass);
+	}
+
+	public void compileInterface(Tree<?> node) {
+		Class<?> clazz = this.asm.compileInterface((SyntaxTree) node);
+		typeSystem.loadDefinedClass(clazz);
+	}
+
+	public void compileAnnotation(Tree<?> node) {
+		Class<?> clazz = this.asm.compileAnnotation((SyntaxTree) node);
+		typeSystem.loadDefinedClass(clazz);
 	}
 
 	public Functor newPrototypeFunction(SyntaxTree node, java.lang.reflect.Type returnType, String name, java.lang.reflect.Type[] paramTypes) {

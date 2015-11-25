@@ -5,7 +5,7 @@ import konoha.message.Message;
 public class TypeCheckerException extends RuntimeException {
 
 	private static final long serialVersionUID = 1L;
-	SyntaxTree errorTree;
+	public SyntaxTree errorTree;
 
 	TypeCheckerException(SyntaxTree node, Message fmt, Object... args) {
 		this.errorTree = newErrorTree(node, fmt.toString(), args);

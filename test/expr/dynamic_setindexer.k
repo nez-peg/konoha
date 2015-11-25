@@ -28,5 +28,3 @@ assert(f(a) == 4);
 assert(g(b) == "y");
 assert(a[0] == 4);
 assert(b[0] == "y");
-
-

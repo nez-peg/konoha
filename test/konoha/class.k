@@ -2,7 +2,7 @@
 
 //import konoha.hack.ByteCode;
 //import konoha.hack.AST;
-
+import konoha.syntax.ClassDeclaration;
 class Klass {
   int a,b;
   String s;

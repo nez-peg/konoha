@@ -19,7 +19,7 @@ boolean TestFunc() {
  //assert(i2 == 0);
  assert(i3 == 1);
  assert(i4 == null);
+ return true;
 }
 
 assert(TestFunc());
-
