@@ -31,7 +31,7 @@ class LambdaApply extends LambdaSyntax {
 
 	@Override
 	public Type acceptType(SyntaxTree node) {
-		SyntaxTree lambda = node.get(_recv);
+		SyntaxTree lambda = node.get(_expr);
 		checker.visit(lambda);
 		if (checker.inFunction()) {
 			SyntaxTree params = node.get(_param);
@@ -41,11 +41,6 @@ class LambdaApply extends LambdaSyntax {
 			params.setTag(_Array);
 			params.setType(Object[].class);
 			node.sub(_name, lambda, _param, params);
-			// if (params.size() > 0) {
-			// node.sub(_name, node.get(_name), _param, params);
-			// } else {
-			// node.sub(_name, node.get(_name));
-			// }
 			checker.setFunctor(node, KonohaFunctor.getInvokeFunc());
 			return lambda.get(_param).getType();
 		} else {
