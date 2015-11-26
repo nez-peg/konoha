@@ -146,7 +146,7 @@ public abstract class KonohaFunctor {
 
 	private static Functor invokeFunc = null;
 
-	static Functor getInvokeFunc() {
+	public static Functor getInvokeFunc() {
 		if (invokeFunc == null) {
 			invokeFunc = load(Syntax.Function, "invokeFunc", Function.class, Object[].class);
 		}

@@ -69,8 +69,13 @@ public abstract class ScriptCompilerAsm extends VisitorMap<TreeAsm> implements C
 			} else {
 				this.mBuilder.invokeVirtual(Type.getType(m.getDeclaringClass()), Method.getMethod(m));
 			}
-			if (m.getReturnType() == Object.class && node.getClassType() != Object.class) {
-				this.mBuilder.checkCast(Type.getType(node.getClassType()));
+			Class<?> t = node.getClassType();
+			if (m.getReturnType() == Object.class && t != Object.class) {
+				if (t.isPrimitive()) {
+					this.mBuilder.unbox(Type.getType(t));
+				} else {
+					this.mBuilder.checkCast(Type.getType(t));
+				}
 			}
 		} else if (f.ref instanceof java.lang.reflect.Field) {
 			Field fld = (Field) f.ref;
