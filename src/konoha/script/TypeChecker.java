@@ -579,12 +579,21 @@ public abstract class TypeChecker extends VisitorMap<TreeChecker> implements Com
 				node.get(_left).setType(t);
 				enforceType(t, node, _right);
 				return t;
-			} else if (this.function.parent != null && this.function.parent.containsVariable(name)) {
-				Type t = this.function.parent.getVarType(name);
-				node.setTag(_SetFreeVar);
-				leftnode.setType(t);
-				enforceType(t, node, _right);
-				return t;
+			} else {
+				FunctionBuilder func = this.function.parent;
+				Type t = null;
+				while (func != null && t == null) {
+					if (func.containsVariable(name)) {
+						t = func.getVarType(name);
+					}
+					func = func.parent;
+				}
+				if (t != null) {
+					node.setTag(_SetFreeVar);
+					leftnode.setType(t);
+					enforceType(t, node, _right);
+					return t;
+				}
 			}
 		}
 		if (this.inFunction()) {
@@ -678,6 +687,8 @@ public abstract class TypeChecker extends VisitorMap<TreeChecker> implements Com
 				if (this.typeSystem.isFuncType(t)) {
 					node.setType(t);
 					return t;
+				} else if (t == Object.class) {
+					return t;
 				}
 			}
 		}
@@ -685,6 +696,8 @@ public abstract class TypeChecker extends VisitorMap<TreeChecker> implements Com
 			GlobalVariable gv = this.typeSystem.getGlobalVariable(name);
 			Type t = gv.getType();
 			if (this.typeSystem.isFuncType(t)) {
+				return setFunctor(node.get(_name), gv.getGetter());
+			} else if (t == Object.class) {
 				return setFunctor(node.get(_name), gv.getGetter());
 			}
 		}
@@ -703,11 +716,12 @@ public abstract class TypeChecker extends VisitorMap<TreeChecker> implements Com
 			}
 			params.setTag(_Array);
 			params.setType(Object[].class);
-			if (params.size() > 0) {
-				node.sub(_name, node.get(_name), _param, params);
-			} else {
-				node.sub(_name, node.get(_name));
-			}
+			node.sub(_name, node.get(_name), _param, params);
+			// if (params.size() > 0) {
+			// node.sub(_name, node.get(_name), _param, params);
+			// } else {
+			// node.sub(_name, node.get(_name));
+			// }
 			return setFunctor(node, KonohaFunctor.getInvokeFunc());
 		} else {
 			SyntaxTree params = node.get(_param);
